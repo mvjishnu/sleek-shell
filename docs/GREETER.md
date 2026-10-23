@@ -33,12 +33,14 @@ Nothing in PAM is changed (`/etc/pam.d/greetd` comes from your distro's greetd p
 - Quickshell 0.3 or newer, built with the Greetd service.
 
 The installer:
-- installs greetd and the Inter font with pacman, dnf, apt or zypper;
+- installs greetd, the Inter font and (on Arch) JetBrainsMono Nerd Font with pacman, dnf, apt or zypper,
+  through your package manager's own confirmation prompt;
 - detects the greeter account (`greeter`, `_greetd` or `greetd`);
 - runs the greeter compositor through `start-hyprland` when it exists.
 
 The greeter runs as the greeter account, so it sees only **system** fonts. If Inter cannot be installed, it falls back to
-Noto Sans. Fonts in `~/.local/share/fonts` are not visible to it.
+Noto Sans. Fonts in `~/.local/share/fonts` are not visible to it. Without a system-wide JetBrainsMono Nerd Font its icons
+show as boxes: outside Arch, put the font in `/usr/local/share/fonts`, run `sudo fc-cache -f`, then `--sync`.
 
 After login, greetd starts your session through `/bin/sh`. That reads only `/etc/profile` and `~/.profile`, not
 `~/.bashrc`, `~/.bash_profile` or zsh files. Put environment variables the desktop needs in `~/.profile`, for example

@@ -54,12 +54,12 @@ printf '[default_session]\ncommand = "start-hyprland -- --config /etc/greetd/sle
 check "greetd with Sleek greeter -> Sleek" test "$(sysq greetd_uses_sleek)" = yes
 
 # install hints per family
-hint() { bash -c '. "$0/lib/deps.sh"; DEP_PKGS_MISSING=(quickshell rofi rofi); install_hint "$1"' "$REPO" "$1"; }
+hint() { bash -c '. "$0/lib/deps.sh"; DEP_PKGS_CORE=(quickshell rofi rofi); install_hint "$1"' "$REPO" "$1"; }
 check "hint arch uses pacman" test "$(hint arch)" = "sudo pacman -S --needed quickshell rofi"
 check "hint fedora uses dnf" test "$(hint fedora)" = "sudo dnf install quickshell rofi"
 check "hint debian uses apt" test "$(hint debian)" = "sudo apt install quickshell rofi"
 check "hint suse uses zypper" test "$(hint suse)" = "sudo zypper install quickshell rofi"
-check "hint unknown names packages only" sh -c "[ \"\$(bash -c '. \"$REPO/lib/deps.sh\"; DEP_PKGS_MISSING=(x); install_hint unknown')\" = 'install with your package manager: x' ]"
+check "hint unknown names packages only" sh -c "[ \"\$(bash -c '. \"$REPO/lib/deps.sh\"; DEP_PKGS_CORE=(x); install_hint unknown')\" = 'install with your package manager: x' ]"
 
 vge() { bash -c '. "$0/lib/deps.sh"; version_ge "$1" "$2"' "$REPO" "$1" "$2"; }
 check "version 0.56.2 >= 0.55" vge 0.56.2 0.55

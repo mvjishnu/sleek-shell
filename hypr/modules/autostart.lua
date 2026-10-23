@@ -8,6 +8,7 @@ hl.on("hyprland.start", function()
 
     hl.exec_cmd("quickshell")      -- bar, dropdowns, notifications, lock screen
     hl.exec_cmd("awww-daemon")     -- wallpaper daemon
+    hl.exec_cmd("~/.config/hypr/scripts/polkit-agent.sh")   -- admin password prompts (skips if one runs)
 
     -- Clipboard history (text and images, one watcher each)
     hl.exec_cmd("wl-paste --type text --watch cliphist store")

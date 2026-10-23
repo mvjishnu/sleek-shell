@@ -15,9 +15,15 @@ that themes your whole desktop, an offline calculator for rofi, and an optional 
 
 ## Status
 
-Version 0.1.0, the first public release. It is developed and used daily on Arch-based systems (CachyOS).
-Other distributions are **experimental**: their package names and detection are covered by fixture tests,
-but nobody has run Sleek Shell on them yet. See [docs/DISTROS.md](docs/DISTROS.md).
+Version 0.1.0, the first public release.
+
+| Distribution | Status |
+|---|---|
+| Arch, CachyOS and derivatives | **Tested**: developed and used daily on CachyOS |
+| Fedora 44, openSUSE Tumbleweed | **Simulated**: package names and installer flow tested with fixtures and stubbed package managers; never installed for real |
+| Debian 13, Ubuntu 26.04 | **Simulated**, and not usable from the official repositories alone (rofi or Hyprland too old) |
+
+See [docs/DISTROS.md](docs/DISTROS.md).
 
 | Needs | Version |
 |---|---|
@@ -47,23 +53,35 @@ but nobody has run Sleek Shell on them yet. See [docs/DISTROS.md](docs/DISTROS.m
 
 ## Install
 
+On a clean system:
+
 ```sh
 git clone https://github.com/mvjishnu/sleek-shell.git && cd sleek-shell
-./install.sh --check      # what is missing on this system (installs nothing)
-./install.sh --dry-run    # exactly what would be copied and backed up
-./install.sh              # install for your user
+./install.sh --check                  # what is missing (installs nothing)
+./install.sh --check --install-deps   # install the missing packages, after showing the command and asking
+./install.sh --dry-run                # exactly which files would be copied and backed up
+./install.sh                          # install for your user
 ```
 
-The installer is per-user. It never uses `sudo`, never installs packages, and never touches `/etc`.
-It backs up everything it replaces and records every file in a manifest, so you can undo it with
-`~/.local/share/sleek-shell/uninstall.sh`. If you already have a Hyprland config, it is **kept** unless you pass
-`--replace-hypr`. Full guide: [docs/INSTALL.md](docs/INSTALL.md).
+Then log out and choose the Hyprland session in your display manager, or run `start-hyprland` from a TTY.
+
+- Packages are installed only with `--install-deps`, and only after you confirm the exact command.
+  - Only your distribution's own repositories are used; third-party repositories are named, never added.
+  - `--with-optional` adds the optional packages.
+  - It never installs or replaces a display manager.
+- The rest of the installer is per-user: it never uses `sudo`, never enables services and never touches `/etc`.
+- It backs up everything it replaces and records every file in a manifest, so
+  `~/.local/share/sleek-shell/uninstall.sh` can undo it.
+- If you already have a Hyprland config, it is **kept** unless you pass `--replace-hypr`.
+
+Every package, per distribution: [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md). Full guide: [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Documentation
 
 | | |
 |---|---|
 | [INSTALL](docs/INSTALL.md) | dependencies, profiles, what goes where, upgrades |
+| [DEPENDENCIES](docs/DEPENDENCIES.md) | every package per distribution, and what the installer does with it |
 | [UNINSTALL](docs/UNINSTALL.md) | removing Sleek Shell and restoring your old files |
 | [CONFIG](docs/CONFIG.md) | settings files, `user.lua`, environment variables, using your own Hyprland config |
 | [KEYBINDS](docs/KEYBINDS.md) | every default shortcut |

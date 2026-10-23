@@ -22,6 +22,16 @@ act() {
     printf '  %sdone%s  %s\n' "$C_G" "$C_0" "$d"
 }
 
+# ask QUESTION: yes/no on the terminal ($SLEEK_PROMPT_IN in tests). No terminal means no.
+ask() {
+    local in="${SLEEK_PROMPT_IN:-/dev/tty}" reply=""
+    if ! { true <"$in"; } 2>/dev/null; then warn "no terminal to confirm on: answered no"; return 1; fi
+    printf '%s [y/N] ' "$1" >&2
+    read -r reply <"$in" || reply=""
+    case "$reply" in y|Y|yes|Yes|YES) return 0 ;; esac
+    return 1
+}
+
 sha_of() { sha256sum -- "$1" 2>/dev/null | cut -d' ' -f1; }
 
 # ---- manifest (tab separated; read by uninstall.sh) ------------------------------------------

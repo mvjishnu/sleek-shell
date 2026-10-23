@@ -90,25 +90,35 @@ other_dms() {
     } | sort -u
 }
 
+# Package installs keep the package manager's own confirmation prompt.
 install_greetd() {
     if command -v greetd >/dev/null; then say "greetd already installed"; return; fi
-    if command -v pacman >/dev/null; then pacman -S --needed --noconfirm greetd
-    elif command -v dnf >/dev/null; then dnf install -y greetd
-    elif command -v apt-get >/dev/null; then apt-get install -y greetd
-    elif command -v zypper >/dev/null; then zypper --non-interactive install greetd
+    if command -v pacman >/dev/null; then pacman -S --needed greetd
+    elif command -v dnf >/dev/null; then dnf install greetd
+    elif command -v apt-get >/dev/null; then apt-get install greetd
+    elif command -v zypper >/dev/null; then zypper install greetd
     else die "unknown package manager: install greetd yourself, then re-run"; fi
+    command -v greetd >/dev/null || die "greetd was not installed (nothing else changed)"
 }
 
+# system_font FAMILY: installed outside any home directory (the greeter account cannot read yours)
+system_font() { grep -qE "^/usr/(local/)?share/fonts/[^:]*: ([^:]*,)?$1(,|\$)" <<<"$(fc-list : family file 2>/dev/null || true)"; }
+
 install_font() {
-    local fonts
-    fonts="$(fc-list : family file 2>/dev/null || true)"
-    if grep -qE '^/usr/(local/)?share/fonts/[^:]*: Inter(,|$)' <<<"$fonts"; then say "Inter font already installed system-wide"; return; fi
-    local ok=1
-    if command -v pacman >/dev/null; then pacman -S --needed --noconfirm inter-font || ok=0
-    elif command -v dnf >/dev/null; then dnf install -y rsms-inter-fonts || ok=0
-    elif command -v apt-get >/dev/null; then apt-get install -y fonts-inter || ok=0
-    else ok=0; fi
-    [ "$ok" = 1 ] || say "could not install the Inter font system-wide; the greeter will use Noto Sans"
+    if system_font Inter; then say "Inter font already installed system-wide"
+    else
+        local ok=1
+        if command -v pacman >/dev/null; then pacman -S --needed inter-font || ok=0
+        elif command -v dnf >/dev/null; then dnf install rsms-inter-fonts || ok=0
+        elif command -v apt-get >/dev/null; then apt-get install fonts-inter || ok=0
+        elif command -v zypper >/dev/null; then zypper install inter-fonts || ok=0
+        else ok=0; fi
+        [ "$ok" = 1 ] || say "could not install the Inter font system-wide; the greeter will use Noto Sans"
+    fi
+    if system_font "JetBrainsMono Nerd Font"; then say "JetBrainsMono Nerd Font already installed system-wide"; return; fi
+    if command -v pacman >/dev/null && pacman -S --needed ttf-jetbrains-mono-nerd; then return; fi
+    warn "JetBrainsMono Nerd Font is not installed system-wide: the greeter's icons will show as boxes."
+    warn "Install it to /usr/local/share/fonts (see docs/DISTROS.md), run fc-cache -f, then --sync."
 }
 
 # System keyboard layout (localectl / X11 settings) for typing the password; the greeter defaults to "us".

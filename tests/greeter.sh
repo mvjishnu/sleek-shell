@@ -23,7 +23,9 @@ stub runuser 'while [ "$1" != -- ]; do shift; done; shift; exec "$@"'
 stub getent '[ "$1" = passwd ] && echo "$2:x:1000:1000::'"$FH"':/bin/bash"'
 stub id 'case "$1" in greeter) exit 0 ;; _greetd|greetd) exit 1 ;; -gn) echo greeter ;; *) exec /usr/bin/id "$@" ;; esac'
 stub localectl 'printf "   System Locale: LANG=en_US.UTF-8\n       X11 Layout: de\n      X11 Variant: nodeadkeys\n"'
-stub fc-list 'echo "/usr/share/fonts/inter/Inter.ttc: Inter"'
+stub fc-list 'echo "/usr/share/fonts/inter/Inter.ttc: Inter"; [ -n "${NO_NERD:-}" ] || echo "/usr/share/fonts/TTF/JetBrainsMonoNerdFont-Regular.ttf: JetBrainsMono Nerd Font,JetBrainsMono NF"'
+PMLOG="$TMPROOT/pm.log"; : > "$PMLOG"
+for c in pacman dnf apt-get zypper; do stub "$c" 'echo "'"$c"' $*" >> "'"$PMLOG"'"'; done
 stub greetd 'exit 0'
 stub systemd-analyze 'cat "'"$R"'/etc/systemd/logind.conf" 2>/dev/null; true'
 command -v quickshell >/dev/null || stub quickshell 'exit 0'
@@ -52,6 +54,7 @@ if ! command -v Hyprland >/dev/null; then
 fi
 
 check "install" gi
+check "install runs no package manager when greetd and fonts are present" test ! -s "$PMLOG"
 check "greeter files installed" sh -c "test -f '$D/greeter/shell.qml' -a -f '$D/hyprland.lua' -a -f '$R/etc/greetd/sleek-shell.toml' -a -f '$R/etc/greetd/sleek-shell-test.toml'"
 check "install leaves the existing login config alone" test "$(cat "$R/etc/greetd/config.toml")" = "$AGREETY"
 check "install does not enable greetd" test ! -e "$R/.sd/greetd.enabled"
@@ -106,5 +109,9 @@ gi >/dev/null 2>&1; gi --enable --yes >/dev/null 2>&1
 check "greetd enabled before: state records it" grep -qx greetd_was_enabled=yes "$D/state"
 gu >/dev/null 2>&1
 check "greetd enabled before: uninstall keeps it enabled with the old config" sh -c "[ -e '$R/.sd/greetd.enabled' ] && grep -q agreety '$R/etc/greetd/config.toml'"
+
+: > "$PMLOG"; NO_NERD=1 gi >/dev/null 2>&1
+check "missing system Nerd Font: pacman asks to install it (no --noconfirm)" test "$(cat "$PMLOG")" = "pacman -S --needed ttf-jetbrains-mono-nerd"
+check "greeter installer never passes --noconfirm / -y" sh -c "! grep -nE -- '--noconfirm|install -y|--non-interactive|--assumeyes' '$G/install.sh'"
 
 finish

@@ -104,6 +104,10 @@ bind = ALT, Tab, global, quickshell:switcher-next
 bind = SUPER, L, exec, quickshell ipc call lock lock
 ```
 
+Also start a polkit agent, or apps that need admin rights cannot ask for your password. On Arch, add
+`exec-once = /usr/lib/hyprpolkitagent/hyprpolkitagent` (or `hl.exec_cmd(...)` in Lua). Sleek Shell's own config uses
+`scripts/polkit-agent.sh`, which picks whichever agent is installed (see [DEPENDENCIES.md](DEPENDENCIES.md)).
+
 Some features need Sleek Shell's Lua modules and are **not available** with your own config:
 - rebinding in Settings → Keyboard;
 - live window looks (borders, blur, gaps, animations);

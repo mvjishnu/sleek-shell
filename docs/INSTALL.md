@@ -2,10 +2,10 @@
 
 ## 1. Dependencies
 
-Sleek Shell does not install packages for you. Run the check, then install what it lists with your package manager:
-
 ```sh
-./install.sh --check
+./install.sh --check                                  # report only
+./install.sh --check --install-deps                   # install missing required + recommended packages
+./install.sh --check --install-deps --with-optional   # ... and the optional ones
 ```
 
 It prints your distribution, init system and display manager, and a table of every dependency with these levels:
@@ -14,16 +14,22 @@ It prints your distribution, init system and display manager, and a table of eve
 - **recommended**: a visible feature is missing without it.
 - **optional**: one button or panel is missing without it.
 
-At the end it prints the package-manager command it would use (it does not run it). It exits with code 3 when
-something required is missing.
+At the end it prints the package-manager command for the missing packages. It exits with code 3 when something
+required is missing.
 
-The core packages on Arch are:
-```sh
-sudo pacman -S --needed hyprland quickshell python awww wl-clipboard cliphist rofi fontconfig xdg-utils \
-    ttf-jetbrains-mono-nerd wireplumber networkmanager libnotify jq grim slurp kitty inter-font
-```
+With `--install-deps` it runs that command through `sudo`, after this:
+- it shows the exact command and asks; it goes ahead only if you type `y`;
+- `--yes` does not answer this question, and with no terminal the answer is no;
+- your package manager still asks too (no `--noconfirm` / `-y`);
+- third-party repositories (COPR, PPA, OBS, backports) are named, never added;
+- a display manager is never installed.
 
-For other distributions, see [DISTROS.md](DISTROS.md). The full table is in `lib/deps.sh`.
+Afterwards it checks again. `--install-deps` also works without `--check`, before the files are installed.
+
+The installer also warns about installed services that are not running (NetworkManager, bluetooth,
+power-profiles-daemon, PipeWire/WirePlumber), and prints the `systemctl enable --now` command. It never runs it.
+
+Every package for every distribution: [DEPENDENCIES.md](DEPENDENCIES.md). Notes per distribution: [DISTROS.md](DISTROS.md).
 
 Version checks: Hyprland **0.55+** is required (the config is Lua), and Quickshell **0.2+** is required (tested with 0.3.2).
 rofi older than 2.0 only gets a warning, because it lacks native Wayland support.
@@ -46,7 +52,7 @@ This shows every file that would be copied, replaced or backed up, and writes no
 ./install.sh --ignore-deps      # install even though required dependencies are missing
 ```
 
-The installer refuses to run as root. It never runs `sudo`, never installs packages, and never enables services or edits `/etc`.
+The installer refuses to run as root. It never enables services or edits `/etc`, and it uses `sudo` only for `--install-deps`, after you confirm.
 
 ### What goes where
 
@@ -82,7 +88,7 @@ If you were already in Hyprland, log out and back in, or reload:
 hyprctl reload
 pkill -x quickshell; hyprctl dispatch 'hl.dsp.exec_cmd("quickshell")'
 ```
-From a TTY, start Hyprland the usual way (`start-hyprland` or `Hyprland`). You can also use any display manager that lists
+From a TTY, run `start-hyprland` (plain `Hyprland` works but shows a warning banner on 0.53+). You can also use any display manager that lists
 the Hyprland session. For a matching login screen, see [GREETER.md](GREETER.md) (optional, needs root).
 
 The installer adds one wallpaper, `~/Pictures/Wallpapers/sleek-shell-astronaut.png`, unless a file with that name
@@ -101,5 +107,10 @@ Running it again with no changes does nothing and creates no backups.
 
 ## Tested
 
-The installer has been tested on CachyOS, and in temporary homes by `tests/installer.sh`.
-Fedora, Debian/Ubuntu and openSUSE are covered only by fixture tests. See [DISTROS.md](DISTROS.md).
+- **Tested:** CachyOS (real install).
+- **Simulated:**
+  - Temporary homes (`tests/installer.sh`).
+  - A bubblewrap sandbox with an empty home and stubbed package managers (`--install-deps`, install, uninstall).
+  - Fedora, Debian/Ubuntu and openSUSE: os-release fixtures and stubbed `dnf`/`apt`/`zypper` (`tests/distro.sh`, `tests/deps.sh`).
+
+See [DISTROS.md](DISTROS.md).

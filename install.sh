@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Sleek Shell installer (per-user; never uses sudo, never installs packages, never touches /etc).
+# Sleek Shell installer (per-user; never touches /etc; sudo only with --install-deps, after you confirm).
 #
 #   ./install.sh --check                 distro, init system, display manager, missing dependencies
+#   ./install.sh --install-deps          also install missing packages from your distro's repositories
 #   ./install.sh --dry-run               show exactly what would be installed / backed up
 #   ./install.sh                         install the full profile (asks before changing anything)
 #   ./install.sh --profile shell         Quickshell shell only, keep your Hyprland config
 #   ./install.sh --replace-hypr          allow replacing an existing non-Sleek ~/.config/hypr (it is backed up)
 #
-# Options: --profile full|shell, --replace-hypr, --dry-run, --check, --yes, --ignore-deps, --help
-# Everything replaced is moved to ~/.local/share/sleek-shell-backups/<time>/ and listed in the manifest;
-# ~/.local/share/sleek-shell/uninstall.sh puts it back. The login greeter is separate: see docs/GREETER.md.
+# Options: --profile full|shell, --replace-hypr, --install-deps, --with-optional, --dry-run, --check,
+#          --yes, --ignore-deps, --help. --install-deps always asks on the terminal (--yes does not answer
+#          it) and never installs a display manager. Replaced files go to ~/.local/share/sleek-shell-backups/
+# and ~/.local/share/sleek-shell/uninstall.sh puts them back. The login greeter is separate: docs/GREETER.md.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,8 +28,10 @@ REPLACE_HYPR=0
 CHECK_ONLY=0
 YES=0
 IGNORE_DEPS=0
+INSTALL_DEPS=0
+WITH_OPTIONAL=0
 
-usage() { sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -38,6 +42,8 @@ while [ $# -gt 0 ]; do
         --check) CHECK_ONLY=1 ;;
         --yes|-y) YES=1 ;;
         --ignore-deps) IGNORE_DEPS=1 ;;
+        --install-deps) INSTALL_DEPS=1 ;;
+        --with-optional) WITH_OPTIONAL=1 ;;
         -h|--help) usage; exit 0 ;;
         *) die "unknown option: $1 (see --help)" ;;
     esac
@@ -71,9 +77,29 @@ head1 "Dependencies"
 deps_ok=1
 check_deps "$DISTRO_FAMILY" || deps_ok=0
 for p in "${DEP_VERSION_PROBLEMS[@]}"; do warn "$p"; done
-hint="$(install_hint "$DISTRO_FAMILY")"
-[ -z "$hint" ] || say "  to install the missing packages (not run for you):
+report_missing() {
+    local hint
+    hint="$(install_hint "$DISTRO_FAMILY")"
+    [ -z "$hint" ] || say "  missing packages from the $DISTRO_FAMILY repositories (./install.sh --install-deps runs this after asking):
     $hint"
+    hint="$(install_hint "$DISTRO_FAMILY" optional)"
+    [ -z "$hint" ] || say "  optional extras (--install-deps --with-optional):
+    $hint"
+    [ "$((${#DEP_MANUAL[@]} + ${#DEP_UNPACKAGED[@]}))" = 0 ] || { say "  not installable from the default repositories:"; deps_notes "$DISTRO_FAMILY"; }
+}
+report_missing
+
+if [ "$INSTALL_DEPS" = 1 ]; then
+    head1 "Installing dependencies"
+    if install_deps "$DISTRO_FAMILY" "$WITH_OPTIONAL" && [ "$DRY" = 0 ]; then
+        head1 "Dependencies after installing"
+        deps_ok=1
+        check_deps "$DISTRO_FAMILY" || deps_ok=0
+        for p in "${DEP_VERSION_PROBLEMS[@]}"; do warn "$p"; done
+        report_missing
+    fi
+fi
+service_hints
 
 if [ "$CHECK_ONLY" = 1 ]; then
     [ -f "$MANIFEST" ] && say "
