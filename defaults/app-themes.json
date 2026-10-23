@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "scope": "selected",
+  "apps": {
+    "kitty": { "mode": "inherit", "palette": "navy", "accent": "" },
+    "rofi": { "mode": "inherit", "palette": "navy", "accent": "" }
+  }
+}

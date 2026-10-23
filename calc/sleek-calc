@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Sleek Shell calculator + unit converter launcher for rofi 2.0
+set -u
+
+CALC_DIR="${SLEEK_CALC_DIR:-$HOME/.local/share/sleek-shell/calc}"
+SCRIPT="$CALC_DIR/sleek_calc.py"
+PLUGIN_DIR="${SLEEK_CALC_PLUGIN_DIR:-$HOME/.local/lib/rofi}"
+PY="${SLEEK_CALC_PYTHON:-python3}"
+
+if [ "${1:-}" = "--cli" ]; then
+    shift
+    exec "$PY" "$SCRIPT" "$@"
+fi
+
+if pgrep -x rofi >/dev/null 2>&1; then
+    pkill -x rofi
+    exit 0
+fi
+
+THEME='mainbox { children: [ inputbar, message, listview ]; }
+entry { placeholder: "Calculate or convert — e.g. 10 miles to km"; }
+message { padding: 8px 4px 0 4px; }'
+
+COMMON=(-no-sort -no-show-icons -theme-str "$THEME")
+[ $# -gt 0 ] && COMMON+=(-filter "$*")
+
+if [ -f "$PLUGIN_DIR/sleekcalc.so" ]; then
+    exec rofi -plugin-path "$PLUGIN_DIR" -modi calc -show calc "${COMMON[@]}"
+fi
+
+exec rofi -modi "calc:$PY $SCRIPT --script" -show calc "${COMMON[@]}"

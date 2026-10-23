@@ -1,0 +1,5 @@
+NAME="openSUSE Leap"
+VERSION_ID="15.6"
+ID="opensuse-leap"
+ID_LIKE="suse opensuse"
+PRETTY_NAME="openSUSE Leap 15.6"

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Calculator plugin build (calc/Makefile)
+calc/sleekcalc.so
+*.o
+*.so
+
+# Quickshell / QML tooling
+.qmlls.ini
+*.qmlc
+*.jsc
+
+# Temporary and editor files
+*.tmp
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+*.log
+.#*
+\#*#
+.DS_Store
+.idea/
+.vscode/
+
+# Local installer or test output
+/tmp/
+/out/

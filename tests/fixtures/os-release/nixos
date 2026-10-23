@@ -1,0 +1,4 @@
+NAME=NixOS
+ID=nixos
+PRETTY_NAME="NixOS 25.05 (Warbler)"
+VERSION_ID="25.05"

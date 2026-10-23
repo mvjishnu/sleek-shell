@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Calculator
+GenericName=Sleek Shell Calculator & Unit Converter
+Comment=Offline scientific calculator and unit converter in rofi
+Exec=@BINDIR@/sleek-calc
+Icon=accessories-calculator
+Terminal=false
+Categories=Utility;Calculator;
+Keywords=calc;math;convert;units;
+StartupNotify=false
