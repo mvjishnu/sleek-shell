@@ -31,6 +31,7 @@ The test suites:
 | `static` | `bash -n` and shellcheck (if installed); `luac`, `qmlformat`, Python and JSON parse; executable bits; `Hyprland --verify-config` on the desktop and greeter configs; `--help` output |
 | `hygiene` | no personal paths, names, secrets, symlinks or large files |
 | `lua` | Hyprland Lua modules (workspaces, monitors, environment) against a mock `hl` API, plus a paren-call lint |
+| `qml` | QML JavaScript logic (idle timeouts, battery set, dimming) with `qmltestrunner`, offscreen |
 | `units` | Python unit tests (`hypr-tools.py` shortcut editor) |
 | `gpu` | GPU detection and driver plans for every NVIDIA generation, hybrids and kernels, from sysfs fixtures |
 | `deps` | dependency table, package hints and `--install-deps` with stubbed package managers |

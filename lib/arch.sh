@@ -363,22 +363,26 @@ idle_current() {
         v="$(python3 -c 'import json,sys
 try:
     v=json.load(open(sys.argv[1])).get(sys.argv[2])
-    print(v if isinstance(v,int) and not isinstance(v,bool) else "")
+    print(int(v) if isinstance(v,bool) else v if isinstance(v,int) else "")
 except Exception: print("")' "$f" "$1" 2>/dev/null)"
     fi
     echo "${v:-$2}"
 }
 idle_valid() { [[ " $2 " == *" $1 "* ]]; }
 
-# apply_idle LOCK OFF SUSPEND: merge the timeouts (minutes, 0 = never) into settings.json
+# apply_idle LOCK OFF SUSPEND [BATTERY_SEPARATE [BLOCK BOFF BSUSPEND]]: merge the timeouts (minutes, 0 = never)
+# into settings.json. BATTERY_SEPARATE is 1, 0 or empty (unchanged); the battery set is written when given.
 apply_idle() {
-    local f="$CFG/sleek-shell/settings.json"
-    if [ "$DRY" = 1 ]; then say "  ${C_Y}would set${C_0} lock after $1 min, screen off after $2 min, suspend after $3 min in ${f/#$HOME/\~}"; return 0; fi
+    local f="$CFG/sleek-shell/settings.json" btxt=""
+    [ -z "${7:-}" ] || btxt=", on battery $5/$6/$7 min"
+    [ "${4:-}" != 0 ] || btxt=", no separate battery timeouts"
+    if [ "$DRY" = 1 ]; then say "  ${C_Y}would set${C_0} lock after $1 min, screen off after $2 min, suspend after $3 min$btxt in ${f/#$HOME/\~}"; return 0; fi
     command -v python3 >/dev/null 2>&1 || { warn "python3 missing: idle settings not written"; return 0; }
     mkdir -p "$(dirname "$f")"
-    python3 - "$f" "$1" "$2" "$3" <<'PY' || { warn "could not update $f (is it valid JSON?): idle settings unchanged"; return 0; }
+    python3 - "$f" "$1" "$2" "$3" "${4:-}" "${5:-}" "${6:-}" "${7:-}" <<'PY' || { warn "could not update $f (is it valid JSON?): idle settings unchanged"; return 0; }
 import json, os, sys, tempfile
 path, lock, off, sus = sys.argv[1], *map(int, sys.argv[2:5])
+sep, bat = sys.argv[5], sys.argv[6:9]
 data = {}
 if os.path.exists(path):
     with open(path) as fh:
@@ -386,13 +390,17 @@ if os.path.exists(path):
     if not isinstance(data, dict):
         raise SystemExit(1)
 data.update({"idleLockMin": lock, "idleScreenOffMin": off, "idleSuspendMin": sus})
+if sep:
+    data["idleBatterySeparate"] = sep == "1"
+if all(bat):
+    data.update(dict(zip(("idleBatteryLockMin", "idleBatteryScreenOffMin", "idleBatterySuspendMin"), map(int, bat))))
 fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".settings.")
 with os.fdopen(fd, "w") as fh:
     json.dump(data, fh, indent=2)
     fh.write("\n")
 os.replace(tmp, path)
 PY
-    ok "idle: lock $( [ "$1" = 0 ] && echo never || echo "after $1 min"), screen off $( [ "$2" = 0 ] && echo never || echo "after $2 min"), suspend $( [ "$3" = 0 ] && echo never || echo "after $3 min")"
+    ok "idle: lock $( [ "$1" = 0 ] && echo never || echo "after $1 min"), screen off $( [ "$2" = 0 ] && echo never || echo "after $2 min"), suspend $( [ "$3" = 0 ] && echo never || echo "after $3 min")$btxt"
 }
 
 # ------------------------------------------------------------------------------------ browser

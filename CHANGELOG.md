@@ -5,6 +5,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-24
+
 ### Added
 - **One installer for the whole desktop on Arch.** `./install.sh` now turns a fresh minimal Arch (or Arch-based)
   system into a working desktop: a full upgrade plus every package in one pacman transaction, AUR packages only
@@ -18,10 +20,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
   - `--dry-run` prints every sudo command; `--check` is read-only; `--user-only` keeps the old per-user install.
   - Exit status 4 when a post-install check fails. Report: `~/.local/share/sleek-shell/install-report.txt`;
     every system change is appended to `system-changes.log`, which the uninstaller prints.
+- Idle: the screen dims before it locks or turns off (Settings › Lock screen, 30 seconds by default, any input
+  brings it back), and laptops can use separate, shorter timeouts on battery. The installer's idle presets set
+  both on laptops. `quickshell ipc call idle status` shows the timeouts in effect.
 - A default `~/.zshrc` (history, completion, `~/.local/bin` on PATH, autosuggestions and syntax highlighting).
 - Built-in laptop panels get scale 1.25 when it gives a whole-pixel desktop.
 - `XDG_MENU_PREFIX=arch-` when `archlinux-xdg-menu` is installed, so Dolphin's "Open with" works outside Plasma.
-- `tests/system.sh`, `tests/gpu.sh`, `tests/lua.sh` and Python unit tests for the shortcut editor.
+- `tests/system.sh`, `tests/gpu.sh`, `tests/lua.sh`, `tests/qml` (qmltestrunner) and Python unit tests for the shortcut editor.
 
 ### Fixed
 - Connecting a new monitor crashed `workspaces.lua`: a line starting with `(` was parsed as a call on the

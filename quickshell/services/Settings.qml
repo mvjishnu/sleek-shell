@@ -41,6 +41,7 @@ Singleton {
         wallpaperDir: "~/Pictures/Wallpapers", wallpaperTransition: "wave",
         lockAvatar: true, lockShowMedia: true, lockShowNotifications: true, avatarStamp: 0,
         idleLockMin: 10, idleScreenOffMin: 15, idleSuspendMin: 0, idleRespectInhibitors: true, lockBeforeSleep: true,
+        idleDimSec: 30, idleBatterySeparate: false, idleBatteryLockMin: 5, idleBatteryScreenOffMin: 10, idleBatterySuspendMin: 15,
         appFont: "Noto Sans", appFontSize: 10, monoFont: "JetBrainsMono Nerd Font", monoFontSize: 11,
         iconTheme: "Papirus-Dark", cursorTheme: "Adwaita", cursorSize: 24
     })
@@ -72,6 +73,12 @@ Singleton {
     property int    idleSuspendMin: 0
     property bool   idleRespectInhibitors: true
     property bool   lockBeforeSleep: true
+    property int    idleDimSec: 30              // dim this long before the first of lock / screen off, 0 = never
+    property bool   idleBatterySeparate: false  // use the idleBattery* timeouts while on battery
+    property int    idleBatteryLockMin: 5
+    property int    idleBatteryScreenOffMin: 10
+    property int    idleBatterySuspendMin: 15
+    readonly property var idleDimChoices: [0, 10, 30, 60]
     readonly property var idleLockChoices: [0, 1, 2, 5, 10, 15, 30]
     readonly property var idleScreenChoices: [0, 1, 2, 5, 10, 15, 30]
     readonly property var idleSuspendChoices: [0, 15, 30, 60, 120]
@@ -123,6 +130,10 @@ Singleton {
         case "idleLockMin": return idleLockChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
         case "idleScreenOffMin": return idleScreenChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
         case "idleSuspendMin": return idleSuspendChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
+        case "idleBatteryLockMin": return idleLockChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
+        case "idleBatteryScreenOffMin": return idleScreenChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
+        case "idleBatterySuspendMin": return idleSuspendChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
+        case "idleDimSec": return idleDimChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
         case "appFont": case "monoFont": case "iconTheme": case "cursorTheme":
             return typeof v === "string" && v.length > 0 && v.length < 120 && !/[\n\r"]/.test(v) ? v : d
         case "appFontSize": return Math.max(7, Math.min(24, Math.round(Number(v) || d)))

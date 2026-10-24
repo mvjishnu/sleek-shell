@@ -233,14 +233,24 @@ fi
 HAS_IDLE=0
 [ -n "$(idle_current idleLockMin "")" ] && HAS_IDLE=1
 if has_battery; then LAPTOP=1; else LAPTOP=0; fi
-idle_preset() {   # idle_preset NAME: sets P_LOCK P_OFF P_SUSPEND
+idle_preset() {   # idle_preset NAME: sets P_LOCK P_OFF P_SUSPEND, and on laptops the battery set P_BAT (P_BSEP 1/0, "" = keep)
+    P_BAT="" P_BSEP=""
     case "$1" in
-        short)    P_LOCK=5;  P_OFF=10; P_SUSPEND=$( [ "$LAPTOP" = 1 ] && echo 15 || echo 0) ;;
-        balanced) P_LOCK=10; P_OFF=15; P_SUSPEND=$( [ "$LAPTOP" = 1 ] && echo 30 || echo 0) ;;
-        long)     P_LOCK=15; P_OFF=30; P_SUSPEND=$( [ "$LAPTOP" = 1 ] && echo 60 || echo 0) ;;
-        never)    P_LOCK=0;  P_OFF=0;  P_SUSPEND=0 ;;
+        short)    P_LOCK=5;  P_OFF=10; P_SUSPEND=$( [ "$LAPTOP" = 1 ] && echo 15 || echo 0); P_BAT="2 5 15" ;;
+        balanced) P_LOCK=10; P_OFF=15; P_SUSPEND=$( [ "$LAPTOP" = 1 ] && echo 30 || echo 0); P_BAT="5 10 15" ;;
+        long)     P_LOCK=15; P_OFF=30; P_SUSPEND=$( [ "$LAPTOP" = 1 ] && echo 60 || echo 0); P_BAT="10 15 30" ;;
+        never)    P_LOCK=0;  P_OFF=0;  P_SUSPEND=0; P_BSEP=0 ;;
         *)        P_LOCK="$(idle_current idleLockMin 10)"; P_OFF="$(idle_current idleScreenOffMin 15)"; P_SUSPEND="$(idle_current idleSuspendMin 0)" ;;
     esac
+    if [ -n "$P_BAT" ]; then
+        if [ "$LAPTOP" = 1 ]; then P_BSEP=1; else P_BAT="" P_BSEP=0; fi
+    fi
+}
+bat_text() {
+    local a b c
+    [ -n "$P_BAT" ] || return 0
+    read -r a b c <<< "$P_BAT"
+    echo " (on battery: lock after $a min, screen off after $b min, suspend after $c min)"
 }
 IDLE_WRITE=1
 if [ -z "$IDLE_PRESET$IDLE_LOCK$IDLE_OFF$IDLE_SUSPEND" ]; then
@@ -248,7 +258,7 @@ if [ -z "$IDLE_PRESET$IDLE_LOCK$IDLE_OFF$IDLE_SUSPEND" ]; then
     opts=()
     [ "$HAS_IDLE" = 1 ] && opts+=("keep|Keep your current timeouts: $k")
     for n in short balanced long; do
-        idle_preset "$n"; opts+=("$n|${n^}: lock after $P_LOCK min, screen off after $P_OFF min, suspend $(minutes "$P_SUSPEND")")
+        idle_preset "$n"; opts+=("$n|${n^}: lock after $P_LOCK min, screen off after $P_OFF min, suspend $(minutes "$P_SUSPEND")$(bat_text)")
     done
     opts+=("never|Never: no automatic lock, screen off or suspend")
     choose IDLE_PRESET "When you are away (lock, screen off, suspend)" "$( [ "$HAS_IDLE" = 1 ] && echo keep || echo balanced)" "${opts[@]}"
@@ -330,7 +340,7 @@ case "$HYPR_ACTION" in
 esac
 say "  ~/.zshrc                    $( if [ ! -e "$HOME/.zshrc" ]; then echo install; elif [ "$ZSHRC_TRIVIAL" = 1 ]; then echo 'replace the empty one zsh created (backed up)'; elif owned "$HOME/.zshrc"; then echo upgrade; else echo 'keep yours'; fi)"
 say "  rofi / kitty defaults       only where you have no config yet"
-say "  idle                        $( [ "$IDLE_WRITE" = 0 ] && echo 'keep your current timeouts' || echo "lock $(minutes "$P_LOCK"), screen off $(minutes "$P_OFF"), suspend $(minutes "$P_SUSPEND")")"
+say "  idle                        $( [ "$IDLE_WRITE" = 0 ] && echo 'keep your current timeouts' || echo "lock $(minutes "$P_LOCK"), screen off $(minutes "$P_OFF"), suspend $(minutes "$P_SUSPEND")$(bat_text)")"
 say "  calculator, icon font, wallpaper, docs, greeter files, uninstaller"
 say "  backups                     ${BACKUP_DIR/#$HOME/\~}/ (only if something is replaced)"
 
@@ -483,7 +493,7 @@ if [ "$SYSTEM" = 1 ]; then
 fi
 
 head1 "Preferences"
-if [ "$IDLE_WRITE" = 1 ]; then apply_idle "$P_LOCK" "$P_OFF" "$P_SUSPEND"; else ok "idle: your current timeouts are kept"; fi
+if [ "$IDLE_WRITE" = 1 ]; then read -r B_LOCK B_OFF B_SUSPEND <<< "${P_BAT:-}"; apply_idle "$P_LOCK" "$P_OFF" "$P_SUSPEND" "$P_BSEP" "${B_LOCK:-}" "${B_OFF:-}" "${B_SUSPEND:-}"; else ok "idle: your current timeouts are kept"; fi
 if [ "$SYSTEM" = 1 ] || { [ "$BROWSER_EXPLICIT" = 1 ] && [ -n "$BROWSER" ]; }; then apply_browser "$BROWSER" "$BROWSER_EXPLICIT"; fi
 case ":$PATH:" in *":$BIN:"*) ;; *) say "  ~/.local/bin is added to PATH by Hyprland and the zsh config from the next login" ;; esac
 
@@ -505,6 +515,9 @@ if [ "$DRY" = 0 ]; then
         printf 'profile:  %s\nsystem:   %s\n' "$PROFILE" "$( [ "$SYSTEM" = 1 ] && echo yes || echo "no ($SYSTEM_WHY)")"
         [ "$SYSTEM" = 0 ] || printf 'browser:  %s\nlogin:    %s\n' "$BROWSER" "$GREETER_ACTION${GREETER_OLD:+ (was $GREETER_OLD)}"
         printf 'idle:     lock %s, screen off %s, suspend %s\n' "$(minutes "$(idle_current idleLockMin 10)")" "$(minutes "$(idle_current idleScreenOffMin 15)")" "$(minutes "$(idle_current idleSuspendMin 0)")"
+        if [ "$(idle_current idleBatterySeparate 0)" = 1 ]; then
+            printf 'battery:  lock %s, screen off %s, suspend %s\n' "$(minutes "$(idle_current idleBatteryLockMin 5)")" "$(minutes "$(idle_current idleBatteryScreenOffMin 10)")" "$(minutes "$(idle_current idleBatterySuspendMin 15)")"
+        fi
         if [ "${#SYS_CHANGES[@]}" -gt 0 ]; then printf '\nSystem changes:\n'; printf '  %s\n' "${SYS_CHANGES[@]}"; fi
         if [ "${#VERIFY_LINES[@]}" -gt 0 ]; then printf '\nChecks:\n'; printf '  %s\n' "${VERIFY_LINES[@]}"; fi
         printf '\nWarnings: %d\n' "$WARNINGS"

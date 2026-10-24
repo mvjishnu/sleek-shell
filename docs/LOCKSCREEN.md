@@ -25,7 +25,9 @@ Every typed character shows a PlayStation symbol in turn: triangle, circle, cros
 - Safe test (unlocks itself after 30 s): `quickshell ipc call lock test`
 - Real lock: `quickshell ipc call lock lock`, or Power menu > Lock in the bar.
 - Keybind example: `quickshell ipc call lock lock`
-- Idle locking: point hypridle's lock command at the same line.
+- Idle: built in, no hypridle needed. Settings > Lock screen sets when the screen locks, turns off and the system
+  suspends, how long the screen dims first (30 s by default; any input brings it back), and on laptops a separate,
+  shorter set used on battery. `quickshell ipc call idle status` prints the timeouts in effect right now.
 
 ## If you get stuck
 Run the safe test first. If a real lock ever hangs or the screen shows a "lockscreen died" message:

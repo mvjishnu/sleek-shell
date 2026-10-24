@@ -3,15 +3,18 @@ import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.UPower
 import qs.services
 import qs.components
 import qs.modules.settings
+import "../../lock/idle.js" as Idle
 
 SettingsPage {
     id: lp
     title: "Lock screen"
     subtitle: "Your profile picture and what the lock screen shows. The picture is copied into ~/.config/sleek-shell/; the original file is never changed."
     readonly property string home: Quickshell.env("HOME")
+    readonly property string acTag: Settings.idleBatterySeparate ? " (plugged in)" : ""
     property string folder: home + "/Pictures"
     property string realName: Quickshell.env("USER") || ""
     FileView {
@@ -148,23 +151,29 @@ SettingsPage {
     SettingsSection {
         title: "Idle & sleep"
         subtitle: "Timers start after your last keyboard, mouse or touchpad input. Changes apply immediately."
-        SectionLabel { title: "Lock the screen after"; subtitle: "Uses the same Sleek Shell lock screen as Super+L" }
+        SectionLabel { title: "Lock the screen after" + lp.acTag; subtitle: "Uses the same Sleek Shell lock screen as Super+L" }
         Segment {
-            model: Settings.idleLockChoices.map(function (m) { return { id: String(m), label: lp.minLabel(m), code: 0 } })
+            model: Settings.idleLockChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
             current: String(Settings.idleLockMin)
             onPicked: optionId => Settings.set("idleLockMin", Number(optionId))
         }
-        SectionLabel { title: "Turn the display off after"; subtitle: "Any input turns it back on. Works whether or not the screen is locked." }
+        SectionLabel { title: "Turn the display off after" + lp.acTag; subtitle: "Any input turns it back on. Works whether or not the screen is locked." }
         Segment {
-            model: Settings.idleScreenChoices.map(function (m) { return { id: String(m), label: lp.minLabel(m), code: 0 } })
+            model: Settings.idleScreenChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
             current: String(Settings.idleScreenOffMin)
             onPicked: optionId => Settings.set("idleScreenOffMin", Number(optionId))
         }
-        SectionLabel { title: "Suspend after"; subtitle: "The screen is locked first. Off by default so downloads and long tasks are not interrupted." }
+        SectionLabel { title: "Suspend after" + lp.acTag; subtitle: "The screen is locked first. Never suspends desktops by default, so downloads and long tasks are not interrupted." }
         Segment {
-            model: Settings.idleSuspendChoices.map(function (m) { return { id: String(m), label: lp.minLabel(m), code: 0 } })
+            model: Settings.idleSuspendChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
             current: String(Settings.idleSuspendMin)
             onPicked: optionId => Settings.set("idleSuspendMin", Number(optionId))
+        }
+        SectionLabel { title: "Dim the screen before"; subtitle: "Fades the screen before it locks or turns off, so you can move the mouse in time" }
+        Segment {
+            model: Settings.idleDimChoices.map(function (m) { return { id: String(m), label: Idle.secLabel(m), code: 0 } })
+            current: String(Settings.idleDimSec)
+            onPicked: optionId => Settings.set("idleDimSec", Number(optionId))
         }
         Text {
             Layout.fillWidth: true
@@ -173,6 +182,36 @@ SettingsPage {
             wrapMode: Text.WordWrap
             color: Theme.yellow
             font.family: Theme.font; font.pixelSize: Theme.fontMd
+        }
+        Divider {}
+        SettingRow {
+            visible: Sys.hasBattery || Settings.idleBatterySeparate
+            title: "Different timeouts on battery"
+            subtitle: UPower.onBattery ? "Running on battery now" : "Plugged in now: the timeouts above apply"
+            Toggle { checked: Settings.idleBatterySeparate; accessibleName: "Different timeouts on battery"; onToggled: Settings.set("idleBatterySeparate", !Settings.idleBatterySeparate) }
+        }
+        ColumnLayout {
+            Layout.fillWidth: true
+            visible: Settings.idleBatterySeparate
+            spacing: 8
+            SectionLabel { title: "On battery: lock after" }
+            Segment {
+                model: Settings.idleLockChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
+                current: String(Settings.idleBatteryLockMin)
+                onPicked: optionId => Settings.set("idleBatteryLockMin", Number(optionId))
+            }
+            SectionLabel { title: "On battery: turn the display off after" }
+            Segment {
+                model: Settings.idleScreenChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
+                current: String(Settings.idleBatteryScreenOffMin)
+                onPicked: optionId => Settings.set("idleBatteryScreenOffMin", Number(optionId))
+            }
+            SectionLabel { title: "On battery: suspend after" }
+            Segment {
+                model: Settings.idleSuspendChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
+                current: String(Settings.idleBatterySuspendMin)
+                onPicked: optionId => Settings.set("idleBatterySuspendMin", Number(optionId))
+            }
         }
         Divider {}
         SettingRow {
@@ -186,6 +225,4 @@ SettingsPage {
             Toggle { checked: Settings.lockBeforeSleep; accessibleName: "Lock before sleep"; onToggled: Settings.set("lockBeforeSleep", !Settings.lockBeforeSleep) }
         }
     }
-
-    function minLabel(m) { return m === 0 ? "Never" : (m >= 60 ? (m / 60) + " h" : m + " min") }
 }

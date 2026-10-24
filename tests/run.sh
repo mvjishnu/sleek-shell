@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Run the test suites. Usage: tests/run.sh [suite...]   (default: all except live)
-# Suites: static hygiene lua units distro gpu system deps calc app-themes installer greeter live
+# Suites: static hygiene lua qml units distro gpu system deps calc app-themes installer greeter live
 # Every suite works under /tmp and never touches your home, /etc or services; live is read-only.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-suites=("$@"); [ ${#suites[@]} -gt 0 ] || suites=(static hygiene lua units distro gpu deps calc app-themes installer greeter system)
+suites=("$@"); [ ${#suites[@]} -gt 0 ] || suites=(static hygiene lua qml units distro gpu deps calc app-themes installer greeter system)
 failed=()
 for s in "${suites[@]}"; do
     printf '\n### %s\n' "$s"
@@ -15,6 +15,11 @@ for s in "${suites[@]}"; do
         units)
             if (cd "$HERE" && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -q -s . -p 'test_*.py'); then echo "== units: passed"
             else failed+=(units); fi ;;
+        qml)
+            qtr="$(command -v qmltestrunner6 || command -v qmltestrunner || ls /usr/lib/qt6/bin/qmltestrunner /usr/lib64/qt6/bin/qmltestrunner 2>/dev/null | head -n1 || true)"
+            if [ -z "$qtr" ]; then echo "== qml: skipped (qmltestrunner not installed)"
+            elif QT_QPA_PLATFORM=offscreen "$qtr" -input "$HERE/qml" -silent; then echo "== qml: passed"
+            else failed+=(qml); fi ;;
         app-themes)
             if ! command -v jq >/dev/null; then echo "== app-themes: skipped (jq not installed)"
             elif bash "$HERE/app-themes.sh"; then echo "== app-themes: passed"

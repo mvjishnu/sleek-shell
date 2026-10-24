@@ -297,6 +297,8 @@ check "A: PipeWire user units enabled globally" sh -c "for u in pipewire.socket 
 check "A: bluetooth and power-profiles-daemon enabled now" sh -c "grep -qx 'systemctl enable --now bluetooth.service' '$ST/sudo.log' && grep -qx 'systemctl enable --now power-profiles-daemon.service' '$ST/sudo.log'"
 check "A: login shell changed from bash to zsh" sh -c "grep -qE '^usermod -s $SB/zsh ' '$ST/sudo.log' && [ \"\$(cat '$ST/shell')\" = '$SB/zsh' ]"
 check "A: laptop idle defaults: lock 10, screen off 15, suspend 30" "$PY3" -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if (d['idleLockMin'],d['idleScreenOffMin'],d['idleSuspendMin'])==(10,15,30) else 1)" "$H/.config/sleek-shell/settings.json"
+check "A: laptop battery timeouts: on, 5, 10, 15" "$PY3" -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if (d['idleBatterySeparate'],d['idleBatteryLockMin'],d['idleBatteryScreenOffMin'],d['idleBatterySuspendMin'])==(True,5,10,15) else 1)" "$H/.config/sleek-shell/settings.json"
+check "A: report lists the battery timeouts" grep -q '^battery:  lock 5 min, screen off 10 min, suspend 15 min' "$H/.local/share/sleek-shell/install-report.txt"
 check "A: firefox is the default browser" grep -qx 'x-scheme-handler/https=firefox.desktop' "$H/.config/mimeapps.list"
 check "A: zshrc, hypr, quickshell, kitty, rofi installed" sh -c "cmp -s '$REPO/defaults/zsh/zshrc' '$H/.zshrc' && [ -f '$H/.config/hypr/hyprland.lua' ] && [ -d '$H/.config/quickshell' ] && [ -f '$H/.config/kitty/kitty.conf' ] && [ -f '$H/.config/rofi/config.rasi' ]"
 check "A: kitty and rofi theming enabled" sh -c "grep -q '\"kitty\"' '$H/.config/sleek-shell/app-themes.json' && grep -q '\"rofi\"' '$H/.config/sleek-shell/app-themes.json'"
@@ -350,6 +352,7 @@ check "B: base-devel and git queued for the AUR build" sh -c "grep '^pacman -Syu
 check "B: sddm disabled, greetd enabled" sh -c "grep -qx 'systemctl disable sddm.service' '$ST/sudo.log' && ! grep -qx sddm.service '$ST/enabled' && grep -qx greetd.service '$ST/enabled'"
 check "B: chrome is the default browser" grep -qx 'x-scheme-handler/https=google-chrome.desktop' "$H/.config/mimeapps.list"
 check "B: desktop idle defaults never suspend" grep -q '"idleSuspendMin": 0' "$H/.config/sleek-shell/settings.json"
+check "B: desktop has no separate battery timeouts" "$PY3" -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d.get('idleBatterySeparate') is False and 'idleBatteryLockMin' not in d else 1)" "$H/.config/sleek-shell/settings.json"
 
 new_system b2
 pci 0000:00:02.0 8086 3e9b i915
@@ -411,6 +414,7 @@ check "G: menus were shown" sh -c "grep -q 'Web browser' '$OUT' && grep -q 'Repl
 check "G: chromium installed and made the default" sh -c "grep '^pacman -Syu' '$ST/sudo.log' | grep -qw chromium && grep -qx 'x-scheme-handler/https=chromium.desktop' '$H/.config/mimeapps.list'"
 check "G: sddm replaced by the greeter after a yes" sh -c "grep -qx 'systemctl disable sddm.service' '$ST/sudo.log' && grep -qx greetd.service '$ST/enabled'"
 check "G: short timeouts on a laptop: 5, 10, 15" "$PY3" -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if (d['idleLockMin'],d['idleScreenOffMin'],d['idleSuspendMin'])==(5,10,15) else 1)" "$H/.config/sleek-shell/settings.json"
+check "G: short battery timeouts: 2, 5, 15" "$PY3" -c "import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if (d['idleBatteryLockMin'],d['idleBatteryScreenOffMin'],d['idleBatterySuspendMin'])==(2,5,15) else 1)" "$H/.config/sleek-shell/settings.json"
 check "G: AMD only: no NVIDIA packages" sh -c "! grep '^pacman -Syu' '$ST/sudo.log' | grep -q nvidia && grep '^pacman -Syu' '$ST/sudo.log' | grep -qw vulkan-radeon"
 
 check "no stub ever saw a call that was not through sudo" sh -c "! grep -rq 'not as root' '$TMPROOT'/*/state/sudo.log"

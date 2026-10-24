@@ -48,17 +48,19 @@ Only choices that depend on you are asked. Press Enter to take the default, or t
     the old one; it is not removed, and the report shows the command that switches back.
   - With the Sleek Shell greeter already running, it is refreshed.
 - **Idle:** minutes until the screen locks, turns off, and the system suspends. Suspend applies only to
-  laptops (a battery is present); on desktops it stays off.
+  laptops (a battery is present); on desktops it stays off. On laptops a preset also turns on a separate,
+  shorter set of timeouts used while on battery.
 
-  | Preset | Lock | Screen off | Suspend (laptops) |
-  |---|---|---|---|
-  | Short | 5 | 10 | 15 |
-  | Balanced | 10 | 15 | 30 |
-  | Long | 15 | 30 | 60 |
-  | Never | never | never | never |
+  | Preset | Lock | Screen off | Suspend (laptops) | On battery: lock / off / suspend |
+  |---|---|---|---|---|
+  | Short | 5 | 10 | 15 | 2 / 5 / 15 |
+  | Balanced | 10 | 15 | 30 | 5 / 10 / 15 |
+  | Long | 15 | 30 | 60 | 10 / 15 / 30 |
+  | Never | never | never | never | off |
 
-  Exact values: `--lock-after`, `--screen-off-after`, `--suspend-after` (minutes, `0` = never). You can change
-  all of them later in Settings → Lock screen.
+  Exact values: `--lock-after`, `--screen-off-after`, `--suspend-after` (minutes, `0` = never). These set the
+  plugged-in timeouts and leave the battery set as it is. The screen dims 30 seconds before it locks or turns
+  off. You can change all of this later in Settings → Lock screen.
 
 ### 3. The plan
 

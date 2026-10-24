@@ -15,7 +15,7 @@ that themes your whole desktop, an offline calculator for rofi, and a matching g
 
 ## Status
 
-Version 0.1.0, the first public release.
+Version 0.2.0: one installer for the whole desktop on Arch. See the [changelog](CHANGELOG.md).
 
 | Distribution | Status |
 |---|---|
@@ -68,7 +68,7 @@ before it changes anything:
 2. **Login screen**: asked only if another display manager (SDDM, GDM, LightDM, ...) is enabled. The
    default is to keep it. With no display manager, the Sleek Shell greeter is installed.
 3. **When you are away**: lock / screen off / suspend timeouts. Balanced is the default (10 / 15 min, and
-   suspend after 30 min on laptops).
+   suspend after 30 min on laptops, with shorter timeouts on battery). The screen dims 30 s before it locks.
 
 Then it does the rest itself, with `sudo`:
 - installs every package the desktop uses (full system upgrade first; the AUR only for what needs it);

@@ -2,7 +2,9 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Services.UPower
 import qs.services
+import "idle.js" as Idle
 
 Scope {
     id: guard
@@ -14,6 +16,16 @@ Scope {
     property string lastEvent: ""
     property double lastEventAt: 0
     readonly property bool sleepInhibitorActive: inhibitor.running
+    property bool dimmed: false
+
+    readonly property var eff: Idle.effective({
+        idleLockMin: Settings.idleLockMin, idleScreenOffMin: Settings.idleScreenOffMin, idleSuspendMin: Settings.idleSuspendMin,
+        idleBatterySeparate: Settings.idleBatterySeparate, idleBatteryLockMin: Settings.idleBatteryLockMin,
+        idleBatteryScreenOffMin: Settings.idleBatteryScreenOffMin, idleBatterySuspendMin: Settings.idleBatterySuspendMin,
+        idleDimSec: Settings.idleDimSec
+    }, UPower.onBattery)
+    onEffChanged: note("timeouts" + (eff.battery ? " (battery)" : "") + ": lock " + eff.lock + " min, screen off " + eff.off
+                       + " min, suspend " + eff.suspend + " min, dim at " + eff.dimAt + " s")
 
     readonly property string sessionPath: {
         var id = Quickshell.env("XDG_SESSION_ID") || "", out = ""
@@ -33,7 +45,20 @@ Scope {
 
     function disp(expr) { Quickshell.execDetached(["hyprctl", "dispatch", expr]) }
 
+    function dim() {
+        if (dimmed || ctl.locked || screenOffByUs) return
+        dimmed = true
+        note("dim" + (testArmed ? " (test)" : ""))
+    }
+
+    function undim() {
+        if (!dimmed) return
+        dimmed = false
+        note("undim")
+    }
+
     function lockNow(reason) {
+        undim()
         if (ctl.locked) return
         note("lock (" + reason + (testArmed ? ", test" : "") + ")")
         ctl.begin(testArmed)
@@ -42,6 +67,7 @@ Scope {
     function screenOff() {
         if (screenOffByUs) return
         screenOffByUs = true
+        undim()
         note("screen off" + (testArmed ? " (test)" : ""))
         disp("hl.dsp.dpms(\"off\")")
         if (testArmed) screenBack.restart()
@@ -56,31 +82,64 @@ Scope {
     }
 
     IdleMonitor {
-        id: lockIdle
-        enabled: Settings.idleLockMin > 0
-        timeout: Math.max(1, Settings.idleLockMin) * 60
+        id: dimIdle
+        enabled: guard.eff.dimAt > 0
+        timeout: Math.max(1, guard.eff.dimAt)
         respectInhibitors: Settings.idleRespectInhibitors
-        onIsIdleChanged: if (isIdle) guard.lockNow("idle " + Settings.idleLockMin + " min")
+        onIsIdleChanged: isIdle ? guard.dim() : guard.undim()
+    }
+
+    IdleMonitor {
+        id: lockIdle
+        enabled: guard.eff.lock > 0
+        timeout: Math.max(1, guard.eff.lock) * 60
+        respectInhibitors: Settings.idleRespectInhibitors
+        onIsIdleChanged: if (isIdle) guard.lockNow("idle " + guard.eff.lock + " min")
     }
 
     IdleMonitor {
         id: screenIdle
-        enabled: Settings.idleScreenOffMin > 0
-        timeout: Math.max(1, Settings.idleScreenOffMin) * 60
+        enabled: guard.eff.off > 0
+        timeout: Math.max(1, guard.eff.off) * 60
         respectInhibitors: Settings.idleRespectInhibitors
         onIsIdleChanged: isIdle ? guard.screenOff() : guard.screenOn()
     }
 
     IdleMonitor {
         id: suspendIdle
-        enabled: Settings.idleSuspendMin > 0
-        timeout: Math.max(1, Settings.idleSuspendMin) * 60
+        enabled: guard.eff.suspend > 0
+        timeout: Math.max(1, guard.eff.suspend) * 60
         respectInhibitors: Settings.idleRespectInhibitors
         onIsIdleChanged: {
             if (!isIdle) return
             if (guard.testArmed) { guard.note("suspend skipped (test)"); return }
-            guard.note("suspend (idle " + Settings.idleSuspendMin + " min)")
+            guard.note("suspend (idle " + guard.eff.suspend + " min)")
             Quickshell.execDetached(["systemctl", "suspend"])
+        }
+    }
+
+    // Dimming: a click-through black layer on every monitor that fades in; any input fades it out.
+    Variants {
+        model: Quickshell.screens
+        PanelWindow {
+            id: shade
+            required property var modelData
+            screen: modelData
+            visible: guard.dimmed || veil.opacity > 0
+            anchors { top: true; bottom: true; left: true; right: true }
+            color: "transparent"
+            exclusionMode: ExclusionMode.Ignore
+            mask: Region {}
+            WlrLayershell.layer: WlrLayer.Overlay
+            WlrLayershell.namespace: "sleek-shell-dim"
+            WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+            Rectangle {
+                id: veil
+                anchors.fill: parent
+                color: "black"
+                opacity: guard.dimmed ? 0.6 : 0
+                Behavior on opacity { NumberAnimation { duration: guard.dimmed ? 2000 : 150; easing.type: Easing.OutQuad } }
+            }
         }
     }
 
@@ -136,6 +195,8 @@ Scope {
         target: "idle"
         function status(): string {
             return JSON.stringify({
+                onBattery: UPower.onBattery, battery: guard.eff.battery,
+                dim: { enabled: dimIdle.enabled, timeout: dimIdle.timeout, idle: dimIdle.isIdle, dimmed: guard.dimmed },
                 lock: { enabled: lockIdle.enabled, timeout: lockIdle.timeout, idle: lockIdle.isIdle },
                 screenOff: { enabled: screenIdle.enabled, timeout: screenIdle.timeout, idle: screenIdle.isIdle, off: guard.screenOffByUs },
                 suspend: { enabled: suspendIdle.enabled, timeout: suspendIdle.timeout, idle: suspendIdle.isIdle },
