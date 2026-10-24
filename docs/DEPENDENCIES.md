@@ -10,8 +10,11 @@ checks the same table, so this page and the installer cannot disagree.
 - **optional**: one button or panel is missing, or there is a fallback.
 
 **What gets installed:**
-- `./install.sh` and `./install.sh --check` never install packages. They print the command to run.
-- `./install.sh --install-deps` installs missing **required and recommended** packages from your
+- **Arch and derivatives:** `./install.sh` installs every required, recommended and optional package in
+  this table, plus the system packages below, with one `pacman -Syu --needed` (see [INSTALL.md](INSTALL.md)).
+  `./install.sh --check` lists them without installing anything.
+- **Other distributions** (and `--user-only`): `./install.sh` never installs packages. It prints the command.
+  `./install.sh --install-deps` installs missing **required and recommended** packages from your
   distribution's own repositories. `--with-optional` adds the optional ones.
   - It shows the exact command first and runs it only after you type `y`. `--yes` does not answer this
     question, and with no terminal the answer is no.
@@ -20,8 +23,14 @@ checks the same table, so this page and the installer cannot disagree.
 - Packages in parentheses come from a third-party repository or backports. They are **never** installed
   for you. The installer names the repository, and you decide whether to add it.
 - _not packaged_: you have to build it or install it by hand (see [DISTROS.md](DISTROS.md)).
-- A display manager or login greeter is never installed by `install.sh`. The greetd greeter is separate:
-  see [GREETER.md](GREETER.md).
+
+**System packages added on Arch** (`ARCH_BASE_PKGS` in `lib/arch.sh`): PipeWire (`pipewire`, `pipewire-alsa`,
+`pipewire-pulse`, `wireplumber`) and `sof-firmware`, NetworkManager, BlueZ, `upower`, `polkit`, the portals,
+`gvfs`, `xdg-user-dirs`, `archlinux-xdg-menu`, zsh with completions, autosuggestions and syntax highlighting,
+Noto fonts with emoji, Mesa plus Vulkan and video drivers for the detected GPUs, the NVIDIA driver when needed (see
+[INSTALL.md](INSTALL.md#4-system-setup-sudo)), the browser you chose, greetd when the Sleek Shell greeter is
+installed, and `base-devel` only when something comes from the AUR. PulseAudio is removed when present, because
+PipeWire replaces it.
 
 **How the names were checked:**
 - **Arch:** every name resolves with `pacman -Sp` against the official repositories (verified on CachyOS).
@@ -82,15 +91,17 @@ packages: it only printed a command, and rows marked _not checked_ were missing 
 
 ## Services
 
-`install.sh` never enables or starts services. After the check it warns about each of these that is
-installed but not running, and prints the command to start it:
+On Arch, `./install.sh` enables these and checks them at the end. On other distributions it only warns
+about each one that is installed but not running, and prints the command to start it:
 
 | Service | Scope | Needed for |
 |---|---|---|
 | `NetworkManager.service` | system | Wi-Fi panel |
 | `bluetooth.service` | system | Bluetooth panel |
-| `power-profiles-daemon.service` | system | power profile switch |
-| `pipewire.socket`, `wireplumber.service` | user | audio and volume keys |
+| `power-profiles-daemon.service` | system | power profile switch (not installed when tuned, TLP or auto-cpufreq is) |
+| `pipewire.socket`, `pipewire-pulse.socket`, `wireplumber.service` | user (enabled globally) | audio and volume keys |
+| `nvidia-suspend`, `nvidia-resume`, `nvidia-hibernate` | system | NVIDIA only: picture after suspend |
+| `greetd.service` | system | the Sleek Shell greeter, when chosen |
 
 It also warns if another notification daemon (mako, dunst, swaync, fnott, xfce4-notifyd) is running.
 That daemon would take notifications away from the shell.
@@ -106,10 +117,10 @@ That daemon would take notifications away from the shell.
   polkit-gnome, mate-polkit, lxqt or lxpolkit). It does nothing if one is already running, for example
   under a full desktop session.
 
-## Login greeter (optional)
+## Login greeter
 
-Needed only for [GREETER.md](GREETER.md), installed by `sudo greeter/install.sh` with your package
-manager's own prompt:
+Needed for [GREETER.md](GREETER.md). On Arch `./install.sh` installs these; elsewhere
+`sudo greeter/install.sh` installs them with your package manager's own prompt:
 
 | Component | Arch | Fedora | Debian / Ubuntu | openSUSE |
 |---|---|---|---|---|

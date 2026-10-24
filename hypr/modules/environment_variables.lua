@@ -30,17 +30,43 @@ for _, d in ipairs({ "/usr/lib/qt6/plugins", "/usr/lib64/qt6/plugins", "/usr/lib
     end
 end
 hl.env("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1")
+-- KDE apps (Dolphin "Open with", file associations) need an applications menu outside Plasma:
+-- archlinux-xdg-menu ships one as arch-applications.menu
+if not os.getenv("XDG_MENU_PREFIX") and exists((os.getenv("SLEEK_SYS_ROOT") or "") .. "/etc/xdg/menus/arch-applications.menu") then
+    hl.env("XDG_MENU_PREFIX", "arch-")
+end
 -- (Hyprland already scales the screen, so no QT_AUTO_SCREEN_SCALE_FACTOR / QT_SCALE_FACTOR here)
 
 -- micro editor: full colour theme
 hl.env("MICRO_TRUECOLOR", "1")
 
--- NVIDIA: only when the proprietary driver is loaded. Hybrid laptops that render on the
--- integrated GPU can opt out with SLEEK_NO_NVIDIA_ENV=1.
-local nv = io.open("/proc/driver/nvidia/version", "r")
+-- ~/.local/bin (sleek-calc and other user tools) for everything started from the desktop
+local home = os.getenv("HOME") or ""
+local path = os.getenv("PATH") or "/usr/local/bin:/usr/bin"
+if home ~= "" and not (":" .. path .. ":"):find(":" .. home .. "/.local/bin:", 1, true) then
+    hl.env("PATH", home .. "/.local/bin:" .. path)
+end
+
+-- NVIDIA: only when the proprietary driver is loaded AND the NVIDIA card is the only GPU. On hybrid
+-- laptops the desktop renders on the integrated GPU, and these variables would push every app onto
+-- the NVIDIA card (or break VA-API). Use prime-run for single apps there. Force with SLEEK_NVIDIA_ENV=1.
+local sysroot = os.getenv("SLEEK_SYS_ROOT") or ""
+local function only_nvidia_gpus()
+    local p = io.popen('cat "' .. sysroot .. '"/sys/class/drm/card[0-9]*/device/vendor 2>/dev/null')
+    if not p then return false end
+    local seen, other = false, false
+    for v in p:lines() do
+        seen = true
+        if v ~= "0x10de" then other = true end
+    end
+    p:close()
+    return seen and not other
+end
+local nv = io.open(sysroot .. "/proc/driver/nvidia/version", "r")
 if nv then
     nv:close()
-    if os.getenv("SLEEK_NO_NVIDIA_ENV") ~= "1" then
+    local force = os.getenv("SLEEK_NVIDIA_ENV")
+    if force == "1" or (force ~= "0" and os.getenv("SLEEK_NO_NVIDIA_ENV") ~= "1" and only_nvidia_gpus()) then
         hl.env("LIBVA_DRIVER_NAME", "nvidia")
         hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
     end

@@ -107,6 +107,29 @@ def run(cmd, timeout=10):
         return 1, "", str(e)
 
 
+def parse_config_errors(text):
+    """Hyprland config errors as a set of strings; empty when there are none ([""] or "no errors")."""
+    text = (text or "").strip()
+    if not text or "no errors" in text.lower():
+        return set()
+    try:
+        data = json.loads(text)
+        if isinstance(data, list):
+            return {str(e).strip() for e in data if str(e).strip()}
+        if isinstance(data, str):
+            text = data
+    except ValueError:
+        pass
+    return {l.strip() for l in text.splitlines() if l.strip()}
+
+
+def config_errors():
+    rc, so, _ = run(["hyprctl", "-j", "configerrors"])
+    if rc != 0:
+        rc, so, _ = run(["hyprctl", "configerrors"])
+    return None if rc != 0 else parse_config_errors(so)
+
+
 # ---------------------------------------------------------------- key combinations
 def split_keys(keys):
     toks = [t.strip() for t in str(keys).split("+") if t.strip()]
@@ -733,8 +756,9 @@ def cmd_save(js, reload=True):
     snap = snapshot_files()
     os.makedirs(SLEEK, exist_ok=True)
     tmp_c, tmp_o = CUSTOM_LUA + ".check", OVERRIDES_LUA + ".check"
-    open(tmp_c, "w").write(gen_custom_lua(base["custom"]))
-    open(tmp_o, "w").write(gen_overrides_lua(base["overrides"]))
+    for path, text in ((tmp_c, gen_custom_lua(base["custom"])), (tmp_o, gen_overrides_lua(base["overrides"]))):
+        with open(path, "w") as f:
+            f.write(text)
     errs = lua_check(tmp_c) or lua_check(tmp_o)
     if errs:
         os.remove(tmp_c); os.remove(tmp_o)
@@ -745,14 +769,15 @@ def cmd_save(js, reload=True):
     keep_backup(snap)
     if not reload:
         return out({"ok": True, "applied": False})
+    before = config_errors()
     run(["hyprctl", "reload"])
     time.sleep(0.6)
-    rc, so, _ = run(["hyprctl", "configerrors"])
-    errs = so.strip()
-    if rc == 0 and errs and "no errors" not in errs.lower() and errs != "[]":
+    after = config_errors()
+    new_errs = sorted(after - (before or set())) if after is not None else []
+    if new_errs:
         restore_files(snap)
         run(["hyprctl", "reload"])
-        return out({"ok": False, "rolledBack": True, "error": "Hyprland rejected the change, previous shortcuts restored: " + errs[:400]})
+        return out({"ok": False, "rolledBack": True, "error": "Hyprland rejected the change, previous shortcuts restored: " + "; ".join(new_errs)[:400]})
     # verify: every enabled custom bind and every remap is live now
     live = {b["norm"] for b in (live_binds() or [])}
     missing = [it["keys"] for it in base["custom"] if it["enabled"] and norm(it["keys"]) not in live]

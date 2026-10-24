@@ -22,14 +22,68 @@ act() {
     printf '  %sdone%s  %s\n' "$C_G" "$C_0" "$d"
 }
 
-# ask QUESTION: yes/no on the terminal ($SLEEK_PROMPT_IN in tests). No terminal means no.
+# Answers come from the terminal, or from $SLEEK_PROMPT_IN (tests: a file with one answer per line).
+# The source is opened once so that consecutive questions read consecutive lines.
+PROMPT_FD=""
+NONINTERACTIVE=0   # install.sh sets it for --yes and --dry-run: every question takes its default
+prompt_open() {
+    [ -n "$PROMPT_FD" ] && return 0
+    local in="${SLEEK_PROMPT_IN:-}"
+    if [ -z "$in" ]; then [ -t 0 ] || return 1; in=/dev/tty; fi
+    { true <"$in"; } 2>/dev/null || return 1
+    exec {PROMPT_FD}<"$in"
+}
+# prompt_read VAR: one line into VAR; fails when there is nothing to read from
+prompt_read() {
+    prompt_open || return 1
+    IFS= read -r "$1" <&"$PROMPT_FD" || { printf -v "$1" '%s' ""; return 1; }
+}
+
+# ask QUESTION: yes/no on the terminal. No terminal means no.
 ask() {
-    local in="${SLEEK_PROMPT_IN:-/dev/tty}" reply=""
-    if ! { true <"$in"; } 2>/dev/null; then warn "no terminal to confirm on: answered no"; return 1; fi
+    local reply=""
+    if ! prompt_open; then warn "no terminal to confirm on: answered no"; return 1; fi
     printf '%s [y/N] ' "$1" >&2
-    read -r reply <"$in" || reply=""
+    prompt_read reply || true
     case "$reply" in y|Y|yes|Yes|YES) return 0 ;; esac
     return 1
+}
+
+# choose_yesno QUESTION DEFAULT(yes|no): the default without a terminal or with --yes / --dry-run
+choose_yesno() {
+    local reply="" d="$2"
+    if [ "$NONINTERACTIVE" = 1 ] || ! prompt_open; then [ "$d" = yes ]; return; fi
+    printf '\n%s [%s] ' "$1" "$( [ "$d" = yes ] && echo Y/n || echo y/N)" >&2
+    prompt_read reply || true
+    case "$reply" in y|Y|yes|Yes|YES) return 0 ;; n|N|no|No|NO) return 1 ;; esac
+    [ "$d" = yes ]
+}
+
+# choose VAR QUESTION DEFAULT "id|label"...: numbered menu; the answer is a number or an id. An empty
+# answer, no terminal, --yes or --dry-run take DEFAULT.
+choose() {
+    local __v="$1" q="$2" def="$3" o i reply="" defn=1
+    shift 3
+    printf -v "$__v" '%s' "$def"
+    [ "$NONINTERACTIVE" = 1 ] && return 0
+    prompt_open || return 0
+    printf '\n%s%s%s\n' "$C_B" "$q" "$C_0" >&2
+    i=1
+    for o in "$@"; do
+        if [ "${o%%|*}" = "$def" ]; then defn=$i; printf '  %d) %s (default)\n' "$i" "${o#*|}" >&2
+        else printf '  %d) %s\n' "$i" "${o#*|}" >&2; fi
+        i=$((i + 1))
+    done
+    while :; do
+        printf 'Choice [%d]: ' "$defn" >&2
+        prompt_read reply || return 0
+        [ -n "$reply" ] || return 0
+        if [[ "$reply" =~ ^[0-9]+$ ]] && [ "$reply" -ge 1 ] && [ "$reply" -le $# ]; then
+            o="${!reply}"; printf -v "$__v" '%s' "${o%%|*}"; return 0
+        fi
+        for o in "$@"; do [ "${o%%|*}" = "$reply" ] && { printf -v "$__v" '%s' "$reply"; return 0; }; done
+        printf '  enter a number from 1 to %d\n' "$#" >&2
+    done
 }
 
 sha_of() { sha256sum -- "$1" 2>/dev/null | cut -d' ' -f1; }
@@ -51,7 +105,8 @@ load_old_manifest() {
     [ -f "$m" ] || return 0
     while IFS=$'\t' read -r kind a b; do
         case "$kind" in
-            file|gen) OLD_SHA["$b"]="$a" ;;
+            file) OLD_SHA["$b"]="$a" ;;
+            gen) OLD_SHA["$b"]="$a"; GEN["$b"]=1 ;;
             dir) NEW_DIRS["$a"]=1 ;;
             backup) OLD_BACKUPS+=("$a"$'\t'"$b") ;;
         esac
@@ -129,6 +184,16 @@ place() {
                 else mkdir -p -- "$(dirname "$keep")" && cp -p -- "$dest" "$keep"; warn "you had edited $dest; your copy is saved as $keep"; fi
             fi
         elif [ "$policy" = ifabsent ]; then
+            # adopt a file that is ours but missing from the manifest (an earlier run stopped before writing
+            # it): identical to the default, or a generated file that carries the Sleek Shell header
+            if [ "$cur" = "$new" ]; then
+                record_file "$new" "$dest"; COUNT_FILES=$((COUNT_FILES + 1))
+                say "  adopt $dest (identical to the Sleek Shell default)"; return 0
+            fi
+            if [ -n "${GEN[$dest]+x}" ] && [ -f "$dest" ] && head -n1 -- "$dest" | grep -q 'Sleek Shell'; then
+                record_file "$cur" "$dest"
+                say "  adopt $dest (written by Sleek Shell)"; return 0
+            fi
             say "  keep  $dest (already exists)"; return 0
         else
             backup_away "$dest"

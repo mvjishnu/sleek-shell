@@ -56,12 +56,13 @@ function M.reconcile()
     if not (hl and hl.get_monitors) then return end
 
     local st = state.load()
+    local log = hl.print or function() end
 
     -- A monitor we have never seen gets its own block of workspaces.
     for _, mon in ipairs(hl.get_monitors()) do
         if not st.monitors[mon.name] then
             state.ensure(st, mon.name, state.DEFAULT_PER_MONITOR)
-            (hl.print or function() end)("[workspaces] new monitor " .. mon.name .. " with "
+            log("[workspaces] new monitor " .. mon.name .. " with "
                 .. table.concat(st.monitors[mon.name].workspaces, ","))
         end
     end

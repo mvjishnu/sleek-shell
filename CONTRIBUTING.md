@@ -30,16 +30,24 @@ The test suites:
 |---|---|
 | `static` | `bash -n` and shellcheck (if installed); `luac`, `qmlformat`, Python and JSON parse; executable bits; `Hyprland --verify-config` on the desktop and greeter configs; `--help` output |
 | `hygiene` | no personal paths, names, secrets, symlinks or large files |
+| `lua` | Hyprland Lua modules (workspaces, monitors, environment) against a mock `hl` API, plus a paren-call lint |
+| `units` | Python unit tests (`hypr-tools.py` shortcut editor) |
+| `gpu` | GPU detection and driver plans for every NVIDIA generation, hybrids and kernels, from sysfs fixtures |
+| `deps` | dependency table, package hints and `--install-deps` with stubbed package managers |
 | `distro` | os-release fixtures for 16 distributions plus a malicious one, init system and display manager detection, package hints |
 | `calc` | calculator engine unit tests |
 | `app-themes` | theme export rewrites only the generated blocks (needs `jq`) |
 | `installer` | install, reinstall, edits, upgrades, `--replace-hypr`, `--profile shell`, uninstall and purge, all in temporary homes |
 | `greeter` | greeter install, `--enable` refusals and uninstall against a fake root under `/tmp`, using stub commands |
+| `system` | the whole Arch install in a bubblewrap sandbox with a fake root and recording stubs for `sudo`, `pacman`, `systemctl`, `yay`: fresh laptop, Pascal desktop with SDDM, interactive answers, reruns, dry run, failures (needs `bwrap`) |
 | `live` | not run by default; inside a running Sleek Shell session only: IPC targets, keybinds and the log (checks the *installed* copy) |
 
 ## Guidelines
 
-- Keep the installer per-user. Nothing outside the greeter may need root.
+- Every privileged step goes through `priv`/`priv_write` (`lib/priv.sh`), is recorded with `sys_change`, and is covered
+  by `tests/system.sh`. Nothing may need root on other distributions or with `--user-only`.
+- The installer runs under `set -euo pipefail`: do not end a function with `[ ... ] && cmd`, and do not write
+  assignments whose only command substitution can fail.
 - Do not hard-code user names, home paths, monitors or GPUs. Use `$HOME`, XDG variables and detection.
 - QML: style everything from `Theme` tokens; services hold state and modules hold UI (see [docs/QUICKSHELL.md](docs/QUICKSHELL.md)).
 - Shell scripts: `set -euo pipefail`, quote everything, and keep them shellcheck-clean.

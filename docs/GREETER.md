@@ -1,11 +1,14 @@
-# Sleek Shell greeter (optional)
+# Sleek Shell greeter
 
 A login screen for [greetd](https://sr.ht/~kennylevinsen/greetd/), built with Quickshell. It runs in its own minimal
 Hyprland as the unprivileged greeter account, separate from your desktop shell. Authentication is done entirely by
 greetd and PAM.
 
-**This is the only part of Sleek Shell that needs root.** It installs a package and writes to `/etc`. Read this page and
-the script (`greeter/install.sh`) before running it. The desktop works without it, with any display manager or from a TTY.
+On Arch, `./install.sh` installs and enables it for you when there is no display manager, and asks before replacing
+one you have (see [INSTALL.md](INSTALL.md#2-the-choices)); `--greeter keep` skips it. It runs
+`greeter/install.sh install`, then `greeter/install.sh --enable --yes --replace`. Elsewhere, install it
+yourself as below. It writes to `/etc`, so read this page and `greeter/install.sh` first. The desktop also works with
+any other display manager, or from a TTY.
 
 > Configs and backups made under the old project names (`sleakos`, `sleak-shell`) are still recognised.
 
@@ -67,6 +70,9 @@ How it behaves:
   - Records whether greetd was enabled before, so the uninstaller can restore exactly that.
   - Refuses if another display manager (sddm, gdm, lightdm, ly, …) is enabled or running, or if logind has no TTY fallback
     (`NAutoVTs=0`). It never disables your current display manager for you.
+  - With `--replace`, a display manager that is already disabled but still running until the reboot does not block it.
+    `./install.sh` uses this after it disabled the old display manager with your consent; the install report shows
+    the command that switches back.
 - **Files from your home are read as you** (via `runuser`), never as root: theme, wallpaper, avatar, `monitors.lua`, and only
   the `clock24h` setting. A symlink in your home therefore cannot copy a root-only file into the world-readable
   `/etc/greetd/sleek-shell`.

@@ -82,6 +82,11 @@ check "--enable refuses while another display manager is wanted" sh -c "! env PA
 rm -r "$R/etc/systemd/system/graphical.target.wants"
 touch "$R/.sd/sddm.active"
 check "--enable refuses while another display manager is running" sh -c "! env PATH='$BIN:$PATH' SUDO_USER=tester SLEEK_TEST_ROOT='$R' bash '$G/install.sh' --enable --yes >/dev/null 2>&1 && [ ! -e '$R/.sd/greetd.enabled' ]"
+ln -s /usr/lib/systemd/system/sddm.service "$R/etc/systemd/system/display-manager.service"
+check "--enable --replace still refuses while another display manager is enabled" sh -c "! env PATH='$BIN:$PATH' SUDO_USER=tester SLEEK_TEST_ROOT='$R' bash '$G/install.sh' --enable --replace --yes >/dev/null 2>&1 && [ ! -e '$R/.sd/greetd.enabled' ]"
+rm "$R/etc/systemd/system/display-manager.service"
+check "--enable --replace allows a disabled display manager that still runs until the reboot" sh -c "env PATH='$BIN:$PATH' SUDO_USER=tester SLEEK_TEST_ROOT='$R' bash '$G/install.sh' --enable --replace --yes >/dev/null 2>&1 && [ -e '$R/.sd/greetd.enabled' ]"
+rm -f "$R/.sd/greetd.enabled" "$D/state"; cp "$(ls "$R"/etc/greetd/config.toml.pre-sleek-shell-* | head -n1)" "$R/etc/greetd/config.toml"; rm -f "$R"/etc/greetd/config.toml.pre-sleek-shell-*
 rm "$R/.sd/sddm.active"
 mkdir -p "$R/etc/systemd"; printf '[Login]\nNAutoVTs=0\n' > "$R/etc/systemd/logind.conf"
 check "--enable refuses with no TTY fallback (NAutoVTs=0)" sh -c "! env PATH='$BIN:$PATH' SUDO_USER=tester SLEEK_TEST_ROOT='$R' bash '$G/install.sh' --enable --yes >/dev/null 2>&1 && [ ! -e '$R/.sd/greetd.enabled' ]"

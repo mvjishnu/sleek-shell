@@ -31,6 +31,7 @@ main() {
     local DATA="$DATA_HOME/sleek-shell"
     local MANIFEST="$DATA/manifest.tsv"
     local SYS_ROOT="${SLEEK_SYS_ROOT:-}"
+    local SYSLOG="$DATA/system-changes.log" syschanges=""
 
     say() { printf '%s\n' "$*"; }
     do_() {   # do_ DESCRIPTION CMD...
@@ -63,6 +64,7 @@ EOF
             backup) backups+=("$a"$'\t'"$b") ;;
         esac
     done < "$MANIFEST"
+    [ -f "$SYSLOG" ] && syschanges="$(cat "$SYSLOG")"
 
     say "Sleek Shell $(awk -F'\t' '$1=="version"{print $2}' "$MANIFEST"): ${#files[@]} files, ${#backups[@]} backups to restore$( [ "$PURGE" = 1 ] && echo ', purge settings')$( [ "$DRY" = 1 ] && echo ' (dry run)')"
     if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && grep -q -F "$(printf '\t%s/hyprland.lua' "$CFG/hypr")" "$MANIFEST"; then
@@ -117,7 +119,7 @@ EOF
     done
 
     if [ "$DRY" = 0 ]; then
-        rm -f -- "$MANIFEST"
+        rm -f -- "$MANIFEST" "$SYSLOG" "$DATA/install-report.txt"
         find "$DATA_HOME/sleek-shell-backups" -depth -type d -empty -delete 2>/dev/null || true
         rmdir -- "$DATA" 2>/dev/null || true
     fi
@@ -128,6 +130,10 @@ EOF
     fi
     [ -d "$DATA_HOME/sleek-shell-backups" ] && say "  leftover backups: $DATA_HOME/sleek-shell-backups"
     [ "$PURGE" = 1 ] || [ ! -d "$CFG/sleek-shell" ] || say "  your settings are kept in $CFG/sleek-shell (--purge removes them)"
+    if [ -n "$syschanges" ]; then
+        say "  install.sh also changed the system. This script does not undo that (it never uses sudo):"
+        printf '%s\n' "$syschanges" | sed 's/^/    /'
+    fi
     say "Packages were not removed. Log out, or restart Hyprland, to finish."
     [ "$FAILED" = 0 ]
 }

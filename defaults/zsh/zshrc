@@ -1,0 +1,45 @@
+# Sleek Shell default ~/.zshrc. Installed only when you had no ~/.zshrc; edit freely (upgrades keep your
+# changes). Personal additions can also go in ~/.zshrc.local, which is never touched.
+
+typeset -U path PATH
+path=("$HOME/.local/bin" $path)
+export PATH
+export EDITOR="${EDITOR:-nano}"
+
+HISTFILE="${XDG_STATE_HOME:-$HOME/.local/state}/zsh/history"
+[[ -d "${HISTFILE:h}" ]] || mkdir -p "${HISTFILE:h}"
+HISTSIZE=50000
+SAVEHIST=50000
+setopt append_history share_history hist_ignore_dups hist_ignore_space hist_reduce_blanks
+setopt auto_cd interactive_comments no_beep extended_glob
+
+bindkey -e
+bindkey '^[[H' beginning-of-line '^[[F' end-of-line '^[[3~' delete-char
+bindkey '^[[1;5C' forward-word '^[[1;5D' backward-word
+autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search; zle -N down-line-or-beginning-search
+bindkey '^[[A' up-line-or-beginning-search '^[[B' down-line-or-beginning-search
+
+autoload -Uz compinit
+compinit -d "${XDG_CACHE_HOME:-$HOME/.cache}/zcompdump-$ZSH_VERSION"
+zstyle ':completion:*' menu select
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+
+alias ls='ls --color=auto' ll='ls -lh --color=auto' la='ls -lAh --color=auto'
+alias grep='grep --color=auto' ip='ip -color=auto'
+
+autoload -Uz vcs_info
+precmd() { vcs_info }
+zstyle ':vcs_info:git:*' formats ' %F{magenta}%b%f'
+setopt prompt_subst
+PROMPT='%F{blue}%~%f${vcs_info_msg_0_} %(?.%F{cyan}.%F{red})❯%f '
+
+for _p in /usr/share/fzf/key-bindings.zsh /usr/share/fzf/completion.zsh \
+          /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh \
+          /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+    [[ -r $_p ]] && source "$_p"
+done
+unset _p
+
+[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

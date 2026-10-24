@@ -121,12 +121,14 @@ cp "$STUBS"/* "$MIN/"
 H="$(new_home)"
 run_inst() { : > "$LOG"; in_home "$H" env PATH="$MIN" SLEEK_OS_RELEASE="$FX/$1" SLEEK_PROMPT_IN="$2" "$REPO/install.sh" "${@:3}" >"$TMPROOT/e2e.log" 2>&1; }
 run_inst arch "$YESF" --check --install-deps; rc=$?
-check "e2e arch: confirmed install runs pacman once" sh -c "[ \$(wc -l < '$LOG') = 1 ] && grep -q '^sudo pacman -S --needed hyprland quickshell ' '$LOG'"
-check "e2e arch: re-checks and still exits 3 (stub installed nothing)" sh -c "[ $rc = 3 ] && grep -q 'Dependencies after installing' '$TMPROOT/e2e.log'"
-check "e2e arch: no display manager, no optional packages" sh -c "! grep -qE ' (greetd|sddm|gdm|lightdm|ly|playerctl|blueman)( |$)' '$LOG'"
+check "e2e arch: --check is read-only (no package manager, exits 3)" sh -c "[ $rc = 3 ] && [ ! -s '$LOG' ]"
+check "e2e arch: --install-deps is only a note (install.sh installs everything)" grep -q 'install-deps is not needed' "$TMPROOT/e2e.log"
+check "e2e arch: without systemd the system setup is skipped and explained" grep -q 'system setup  no: systemd is not running' "$TMPROOT/e2e.log"
 check "e2e: home untouched by --check --install-deps" test -z "$(ls -A "$H")"
-run_inst arch "$NOTTY" --check --install-deps --yes
+run_inst fedora "$NOTTY" --check --install-deps --yes
 check "e2e: --yes does not answer the package prompt" sh -c "[ ! -s '$LOG' ] && grep -q 'no terminal to confirm' '$TMPROOT/e2e.log'"
+run_inst arch "$NOTTY" --yes; rc=$?
+check "e2e arch without systemd: missing deps stop the install, nothing written" sh -c "[ $rc != 0 ] && [ ! -s '$LOG' ] && [ -z \"\$(ls -A '$H')\" ] && grep -q 'required dependencies are missing' '$TMPROOT/e2e.log'"
 run_inst fedora "$YESF" --check --install-deps
 check "e2e fedora: hyprland not queued, COPR named" sh -c "! grep -q ' hyprland ' '$LOG' && grep -q 'COPR sdegler/hyprland' '$TMPROOT/e2e.log' && grep -q '^sudo dnf install ' '$LOG'"
 run_inst debian "$YESF" --check --install-deps

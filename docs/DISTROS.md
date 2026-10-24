@@ -32,17 +32,19 @@ On every distribution, these are the hard part:
   (or `/usr/local/share/fonts` for the greeter), and run `fc-cache -f`.
 
 ## Arch and derivatives
-Everything is in the official repositories (`extra`). This installs every required and recommended package:
-```sh
-./install.sh --check --install-deps
-```
-or by hand:
+Everything is in the official repositories (`extra`); the AUR is used only for the NVIDIA 580xx driver and
+browsers your repositories do not have. `./install.sh` installs, configures and verifies the whole desktop
+(packages, GPU driver, services, login screen): see [INSTALL.md](INSTALL.md). `./install.sh --check` lists the
+packages it would install. With `--user-only` only your home is changed; then install at least:
 ```sh
 sudo pacman -S --needed hyprland quickshell python awww wl-clipboard cliphist rofi fontconfig xdg-utils \
     ttf-jetbrains-mono-nerd kitty dolphin xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpolkitagent \
     wireplumber upower networkmanager libnotify glib2 jq grim slurp inter-font noto-fonts papirus-icon-theme \
     adwaita-cursors
 ```
+
+Inside `arch-chroot` (before the first boot), systemd is not running: the installer refuses the system part and
+asks you to run it again after booting.
 
 ## Fedora (simulated)
 - Quickshell 0.2 and rofi 2.0 are in the Fedora 44 repositories.
@@ -69,10 +71,11 @@ sudo pacman -S --needed hyprland quickshell python awww wl-clipboard cliphist ro
 - The rest (`wl-clipboard`, `cliphist`, `jq`, `grim`, `slurp`, `kitty`, `fonts-inter`, …) comes from apt.
 
 ## Dolphin outside Plasma
-Outside a Plasma session, Dolphin's "Open with" list can be empty, because no KDE application menu is installed.
-On Arch, install `archlinux-xdg-menu`, then add `hl.env("XDG_MENU_PREFIX", "arch-")` to `~/.config/hypr/user.lua`
-and run `kbuildsycoca6` once. `kde-cli-tools` adds the "Open with" dialog. Neither is installed for you.
-`SUPER+E` opens your default file manager (`xdg-mime query default inode/directory`). Any file manager works.
+Outside a Plasma session, Dolphin's "Open with" list is empty unless a KDE application menu is installed. On Arch,
+`./install.sh` installs `archlinux-xdg-menu`, and the Hyprland config then sets `XDG_MENU_PREFIX=arch-` (only when
+`/etc/xdg/menus/arch-applications.menu` exists and you have not set it yourself). Run `kbuildsycoca6` once if the
+list stays empty. Elsewhere, set `hl.env("XDG_MENU_PREFIX", "...")` in `~/.config/hypr/user.lua` to match your
+distribution's menu file. `SUPER+E` opens your default file manager (`xdg-mime query default inode/directory`).
 
 ## Without systemd
 The power menu and idle suspend call `systemctl suspend|reboot|poweroff`. Locking before sleep and on `loginctl lock-session`
@@ -81,6 +84,6 @@ compatible commands (for example elogind with a `systemctl` shim). Everything el
 The greeter needs systemd as well: its installer manages `greetd.service` with `systemctl`.
 
 ## Login greeter
-The optional greeter (see [GREETER.md](GREETER.md)) installs `greetd`, Inter, and (on Arch) the Nerd Font system-wide, with
+On Arch, `./install.sh` sets up the greeter. Elsewhere, the greeter installer (see [GREETER.md](GREETER.md)) installs `greetd`, Inter, and (on Arch) the Nerd Font system-wide, with
 pacman, dnf, apt or zypper. Your package manager asks before it installs anything. The greeter detects the account name
 (`greeter`, `_greetd` or `greetd`). This has only been run for real on CachyOS.

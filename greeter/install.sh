@@ -5,6 +5,9 @@
 #   sudo ./install.sh --test       print the safe manual test (greeter on VT7, your login untouched)
 #   sudo ./install.sh --enable     make the greeter the login screen from the next boot (asks first; does not start it)
 #   sudo ./install.sh --sync       re-copy your current theme, wallpaper, avatar, monitor and keyboard layout
+#   sudo ./install.sh --enable --replace   as --enable, but a display manager that is already disabled and
+#                                  only still running until the reboot does not block it (used by the main
+#                                  installer after it disabled the old display manager with your consent)
 #   sudo ./uninstall.sh            roll back (see that script)
 #
 # Safety:
@@ -16,7 +19,8 @@
 #   * files are read from your home as you (not as root), and the new greeter files are checked with
 #     Hyprland --verify-config before anything points at them; on failure the previous files are put back.
 #   * if the greetd package enables greetd.service on install (some distros do), it is disabled again.
-#   * --enable refuses if another display manager is enabled or running, or if no TTY fallback exists.
+#   * --enable refuses if another display manager is enabled or running (with --replace: enabled), or if no
+#     TTY fallback exists.
 #   * PAM is not modified: the distro's greetd package ships /etc/pam.d/greetd.
 #   * only the clock24h preference is copied from your settings.json (the copy is world-readable).
 set -euo pipefail
@@ -40,10 +44,12 @@ KNOWN_DMS="sddm gdm gdm3 lightdm lxdm ly plasmalogin cosmic-greeter xdm slim nod
 
 MODE=
 ASSUME_YES=0
+REPLACE=0
 for a in "$@"; do
     case "$a" in
         --yes|-y) ASSUME_YES=1; continue ;;
-        -h|--help) sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --replace) REPLACE=1; continue ;;
+        -h|--help) sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         install|--install) m=install ;;
         --test|--enable|--sync) m="$a" ;;
         *) echo "error: unknown option $a" >&2; exit 1 ;;
@@ -77,6 +83,8 @@ greetd_enabled() { case "$(systemctl is-enabled greetd.service 2>/dev/null)" in 
 greetd_active() { systemctl is-active --quiet greetd.service 2>/dev/null; }
 
 # Other display managers that are enabled or running (one per line). greetd itself is not listed.
+# other_dms enabled: only the enabled ones (with --replace a display manager that still runs this boot but
+# is already disabled does not block: it is gone after the reboot).
 other_dms() {
     {
         if [ -L "$ROOT/etc/systemd/system/display-manager.service" ]; then
@@ -85,7 +93,7 @@ other_dms() {
         fi
         for d in $KNOWN_DMS; do
             find "$ROOT/etc/systemd/system" -path '*.wants/*' \( -name "$d.service" -o -name "$d@*.service" \) -exec test -e {} \; -printf '%f\n' 2>/dev/null || true
-            systemctl list-units --no-legend --plain --state=active "$d.service" "$d@*.service" 2>/dev/null | awk '{print $1}' || true
+            [ "${1:-}" = enabled ] || systemctl list-units --no-legend --plain --state=active "$d.service" "$d@*.service" 2>/dev/null | awk '{print $1}' || true
         done
     } | sort -u
 }
@@ -287,9 +295,9 @@ EOF
     nauto="$( { systemd-analyze cat-config systemd/logind.conf 2>/dev/null || cat "$ROOT/etc/systemd/logind.conf" 2>/dev/null || true; } \
         | sed -n 's/^[[:space:]]*NAutoVTs[[:space:]]*=[[:space:]]*//p' | tail -n1 || true)"
     [ "${nauto:-6}" != 0 ] || die "logind NAutoVTs=0: no TTY fallback would exist; refusing to enable"
-    others="$(other_dms)"
+    if [ "$REPLACE" = 1 ]; then others="$(other_dms enabled)"; else others="$(other_dms)"; fi
     if [ -n "$others" ]; then
-        die "another display manager is enabled or running: $(echo $others). Disable it yourself first (sudo systemctl disable <unit>) if you really want to switch; nothing changed"
+        die "another display manager is enabled$( [ "$REPLACE" = 1 ] || echo ' or running'): $(echo $others). Disable it yourself first (sudo systemctl disable <unit>) if you really want to switch; nothing changed"
     fi
     echo "This makes the Sleek Shell greeter the login screen from the next boot:"
     if [ -f "$CONF" ] && ! is_ours "$CONF"; then echo "  * $CONF is replaced by $STAGED (the current file is backed up next to it first)"
