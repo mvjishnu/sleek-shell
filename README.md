@@ -111,8 +111,9 @@ cd sleek-shell
 ./install.sh
 ```
 
-The installer asks for the few real choices (browser, login screen, idle timeouts, auto-login),
-shows a plan, and then installs. To accept every default without questions:
+The installer asks for the few real choices (browser and idle timeouts), shows a plan, and then
+installs the reference setup: TTY1 auto-login with the PAM lock before the desktop is usable.
+To accept every default without questions:
 
 ```bash
 ./install.sh --yes
@@ -141,12 +142,12 @@ systemctl reboot
 | Option | Meaning |
 |---|---|
 | `--browser firefox\|chromium\|vivaldi\|brave\|zen\|chrome\|epiphany\|none` | Browser to install and make default (default: **Zen Browser**) |
-| `--greeter auto\|sleek\|keep` | Login screen: install the Sleek greeter when there is none, ask before replacing another, or keep it |
+| `--greeter auto\|sleek\|keep` | Login screen: `auto` installs and enables the Sleek greeter when there is none, `sleek` replaces the current one (after asking), `keep` leaves it alone (default; TTY1 auto-login starts the desktop instead) |
 | `--idle short\|balanced\|long\|never` | Lock / screen off / suspend timeouts (default: **balanced**) |
 | `--lock-after MIN` | Exact auto-lock timeout in minutes (`0` = never) |
 | `--screen-off-after MIN` | Exact screen-off timeout |
 | `--suspend-after MIN` | Exact suspend timeout |
-| `--autologin yes\|no` | TTY1 auto-login; the session locks before the desktop is usable |
+| `--autologin yes\|no` | TTY1 auto-login (default: **yes**); the session locks before the desktop is usable. `no` keeps a normal TTY login |
 | `--nvidia open\|580xx\|nouveau` | Override the detected NVIDIA driver |
 | `--profile full\|shell` | Full desktop, or only the Quickshell shell (keep your Hyprland config) |
 | `--replace-hypr` | Replace an existing `~/.config/hypr` (backed up first) |
@@ -172,7 +173,8 @@ systemctl reboot
    - on CachyOS: Plymouth, the CachyOS Plymouth themes and the CachyOS GRUB theme;
    - the GPU driver and its suspend services.
 4. **Configures** (with backups and idempotent writes):
-   - TTY1 auto-login (opt-in) and the PAM-authenticated lock on startup;
+   - TTY1 auto-login (default; `--autologin no` disables it) and the PAM-authenticated lock on startup;
+   - the greeter files, ready for `--greeter sleek` or a later enable;
    - PipeWire, NetworkManager, Bluetooth, power profiles, login shell;
    - Plymouth theme, `plymouth`/`plymouth-shutdown` mkinitcpio hooks, GRUB theme, `quiet splash`,
      then `mkinitcpio -P` and `grub-mkconfig`;
@@ -190,13 +192,18 @@ restores them.
 
 ### Auto-login and auto-lock
 
-Auto-login is **opt-in** (`--autologin yes`, or answer yes when asked). When enabled:
+Auto-login is **on by default**, matching the reference desktop. `--autologin no` keeps a normal
+TTY login; `--greeter sleek` installs and enables the graphical greeter instead. When auto-login is on:
 
 - `getty@tty1` logs the user in automatically;
 - `~/.zprofile` starts Hyprland only on VT1 and only when no Wayland session is running;
 - `hypr/scripts/start-shell` asks Quickshell for a **PAM-authenticated lock before the desktop
   is usable**, so auto-login does not expose your session;
 - the startup lock flag is consumed once, so reloading the shell never re-locks an unlocked session.
+
+The greeter is a separate, optional login screen. Its files are always installed under
+`~/.local/share/sleek-shell/greeter`; run `sudo ~/.local/share/sleek-shell/greeter/install.sh --enable`
+(or re-run the installer with `--greeter sleek`) to use it instead of TTY1 auto-login.
 
 Auto-lock is always configured through the idle settings: dim, lock, screen off and suspend,
 with separate values on battery. The default `balanced` preset locks after 10 minutes and turns

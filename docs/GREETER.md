@@ -4,8 +4,9 @@ A login screen for [greetd](https://sr.ht/~kennylevinsen/greetd/), built with Qu
 Hyprland as the unprivileged greeter account, separate from your desktop shell. Authentication is done entirely by
 greetd and PAM.
 
-On Arch, `./install.sh` installs and enables it for you when there is no display manager, and asks before replacing
-one you have (see [INSTALL.md](INSTALL.md#2-the-choices)); `--greeter keep` skips it. It runs
+On Arch, the default `./install.sh` keeps TTY1 auto-login and only copies the greeter files; the greeter is opt-in
+with `--greeter sleek` (or `--greeter auto`, which installs it when there is no display manager and asks before
+replacing one you have — see [INSTALL.md](INSTALL.md#2-the-choices)). Enabling it runs
 `greeter/install.sh install`, then `greeter/install.sh --enable --yes --replace`. Elsewhere, install it
 yourself as below. It writes to `/etc`, so read this page and `greeter/install.sh` first. The desktop also works with
 any other display manager, or from a TTY.

@@ -99,5 +99,5 @@ Communication with Hyprland goes three ways:
 | `~/.local/state/hyprland/startup.log` | Hyprland startup log (auto-login) |
 | `~/Pictures/Wallpapers/` | Wallpapers (the shipped collection plus yours) |
 | `~/.zshrc`, `~/.zprofile`, `~/.p10k.zsh`, `~/.powerlevel10k/` | Shell profile and prompt |
-| `/etc/systemd/system/getty@tty1.service.d/sleek-shell-autologin.conf` | TTY1 auto-login (opt-in) |
+| `/etc/systemd/system/getty@tty1.service.d/sleek-shell-autologin.conf` | TTY1 auto-login (default) |
 | `/etc/greetd/sleek-shell/` | Greeter only: a copy of your look, made at greeter install or `--sync` |

@@ -9,21 +9,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ### Added
 - **Full desktop sync.** The repository now ships the current live configuration: the Pixel-inspired lock
-  screen, Cava audio visualiser, glass finish controls, the static orbit chooser, the `home`/`pixel` modules and
-  the current Hyprland Lua layout (`env.lua`, `misc.lua`, `windowrules.lua`, `layers.lua`, `monitors.lua`).
+  screen, Cava audio visualiser, glass finish controls, the rotating orbit chooser, the `home`/`pixel` modules
+  and the current Hyprland Lua layout (`env.lua`, `misc.lua`, `windowrules.lua`, `layers.lua`, `monitors.lua`).
 - **Boot experience in the installer.** Plymouth theme (`lone`), `plymouth`/`plymouth-shutdown` mkinitcpio hooks,
   the `stylish` GRUB theme, `quiet splash`, `GRUB_GFXMODE`, then `mkinitcpio -P` and `grub-mkconfig`. System files
   are backed up and only rewritten when they change. CachyOS themes are installed automatically; other systems
   keep their boot menu unless Plymouth is already present.
-- **The full wallpaper collection** (200+ free/open-source images) in `assets/wallpapers`; the installer copies
-  them to `~/Pictures/Wallpapers` and never overwrites existing files.
+- **The full wallpaper collection** (203 free/open-source images) in `assets/wallpapers`, fitted to 2560x1440
+  and stripped of metadata for a sane clone size; the installer copies them to `~/Pictures/Wallpapers` and never
+  overwrites existing files.
 - **The reference zsh profile:** `~/.zshrc`, `~/.zprofile`, `~/.p10k.zsh` and Powerlevel10k, with eza aliases,
   history settings, autosuggestions, syntax highlighting, Rust helpers and a `~/.zshrc.local` hook.
 - **Thunar as the reference file manager**, with `thunar-volman` and `gvfs`; the installer claims `inode/directory`
   only when no handler is configured.
 - **Cava** is installed with the shell and sleeps when idle.
-- **Auto-login and auto-lock are documented end to end:** opt-in TTY1 login, the PAM-authenticated startup lock,
-  and idle dim → lock → screen off → suspend (separate on battery).
+- **Auto-login and auto-lock work out of the box:** TTY1 login is enabled by default (`--autologin no` opts out),
+  Quickshell locks the session with PAM before the desktop is usable, and idle dim → lock → screen off → suspend
+  is configured with separate battery timeouts. The greeter files ship too and are opt-in (`--greeter sleek`).
 - New HyDE-style README and refreshed documentation for every module, file and package.
 
 ### Changed
@@ -42,6 +44,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 - `enable-autologin` generates the systemd override for the current user instead of depending on a machine-specific
   file.
 - `polkit-agent` references in the dependency table and tests follow the extensionless script name.
+- The Wi-Fi/Bluetooth orbit chooser rotates continuously again (33 ms timer, about 100 s per revolution) and
+  pauses while you drag a node or turn animations off.
 
 ## [0.2.0] - 2026-10-24
 

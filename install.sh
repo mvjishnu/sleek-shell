@@ -14,7 +14,8 @@
 # Choices (asked when you do not pass them; --yes and --dry-run take the default):
 #   --browser firefox|chromium|vivaldi|brave|zen|chrome|epiphany|none     default: Zen Browser
 #   --greeter auto|sleek|keep     login screen: auto installs it when there is none and asks before
-#                                 replacing another display manager (default: keep the other one)
+#                                 replacing another display manager (default: keep; TTY1 auto-login
+#                                 starts the desktop, the greeter files are still installed)
 #   --idle short|balanced|long|never      lock / screen off / suspend timeouts (default: balanced)
 #   --lock-after MIN, --screen-off-after MIN, --suspend-after MIN       exact timeouts (0 = never)
 #   --nvidia open|580xx|nouveau   override the NVIDIA driver choice (default: picked from the card)
@@ -22,7 +23,7 @@
 #   --profile full|shell          shell = the Quickshell shell only, your Hyprland config is kept
 #   --replace-hypr                replace an existing ~/.config/hypr (it is backed up first)
 #   --keep-shell                  do not make zsh your login shell
-#   --autologin yes|no            auto-login on TTY1 and lock before showing the desktop (default: no)
+#   --autologin yes|no            auto-login on TTY1 and lock before showing the desktop (default: yes)
 #   --user-only                   no sudo: install into your home only (also --skip-system)
 #   --ignore-deps                 with --user-only: install even when required programs are missing
 #   --install-deps, --with-optional    other distributions: install the missing packages after asking
@@ -56,9 +57,9 @@ INSTALL_DEPS=0
 WITH_OPTIONAL=0
 USER_ONLY=0
 KEEP_SHELL=0
-AUTOLOGIN=no
+AUTOLOGIN=yes
 BROWSER="" BROWSER_EXPLICIT=0
-GREETER_CHOICE=auto
+GREETER_CHOICE=keep
 NVIDIA_MODE=auto
 IDLE_PRESET="" IDLE_LOCK="" IDLE_OFF="" IDLE_SUSPEND=""
 
@@ -328,7 +329,15 @@ if [ "$SYSTEM" = 1 ]; then
         install) say "  login screen  Sleek Shell greeter (greetd), enabled for the next boot" ;;
         refresh) say "  login screen  Sleek Shell greeter: refreshed" ;;
         replace) say "  login screen  Sleek Shell greeter replaces $GREETER_OLD (disabled, not removed)" ;;
-        keep)    say "  login screen  $DM_NOW (kept)$( [ "$DM_NOW" = none ] && echo ': start Hyprland from the console with: start-hyprland')" ;;
+        keep)    if [ "$DM_NOW" = none ]; then
+                     if [ "$AUTOLOGIN" = yes ]; then
+                         say "  login screen  none (kept): TTY1 auto-login starts Hyprland and locks it"
+                     else
+                         say "  login screen  none (kept): start Hyprland from the console with: start-hyprland"
+                     fi
+                 else
+                     say "  login screen  $DM_NOW (kept)"
+                 fi ;;
     esac
     say "  browser       $( [ "$BROWSER" = none ] && echo 'none (kept as it is)' || browser_field "$BROWSER" 2)"
     say "  login shell   $( [ "$KEEP_SHELL" = 1 ] && echo 'kept (--keep-shell)' || echo 'zsh (only if it is bash now)')"

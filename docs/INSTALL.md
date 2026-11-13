@@ -41,9 +41,12 @@ Only choices that depend on you are asked. Press Enter to take the default, or t
 - **Browser:** packages that are not in your repositories (Google Chrome; Brave and Zen outside CachyOS) are
   built from the AUR, and the list says so. The browser you pick becomes the default for web links.
   `none` installs nothing and keeps your current default.
-- **Login screen:**
-  - With no display manager, the [Sleek Shell greeter](GREETER.md) is installed and enabled for the next boot.
-    `--greeter keep` skips it; you then start Hyprland from the console with `start-hyprland`.
+- **Login screen and auto-login:**
+  - With no display manager (the reference setup), TTY1 auto-login starts Hyprland and Quickshell locks the
+    session before the desktop is usable. `--autologin no` keeps a normal console login.
+  - `--greeter sleek` (or `auto`) installs and enables the [Sleek Shell greeter](GREETER.md) instead; its files
+    are always installed, so you can enable it later with
+    `sudo ~/.local/share/sleek-shell/greeter/install.sh --enable`.
   - With another display manager, it is kept unless you say yes (or pass `--greeter sleek`). Replacing disables
     the old one; it is not removed, and the report shows the command that switches back.
   - With the Sleek Shell greeter already running, it is refreshed.
@@ -106,8 +109,9 @@ browser, the login shell, and every path in your home it installs, upgrades, rep
    `plymouth`/`plymouth-shutdown` mkinitcpio hooks, sets the `stylish` GRUB theme and `quiet splash`, then rebuilds
    the initramfs and the GRUB menu. Every system file is backed up first, and both rebuilds run only when something
    changed. On other Arch systems the current boot is kept unless Plymouth is already installed.
-10. **Auto-login** (only with `--autologin yes`): a `getty@tty1` override logs you in and `~/.zprofile` starts
-    Hyprland; `start-shell` then asks for a PAM-authenticated unlock before the desktop is usable.
+10. **Auto-login** (default; `--autologin no` disables it): a `getty@tty1` override logs you in and `~/.zprofile`
+    starts Hyprland; `start-shell` then asks for a PAM-authenticated unlock before the desktop is usable. When a
+    display manager is kept or `--greeter sleek` is used, the greeter handles login instead.
 
 ### 5. Your home
 
@@ -184,7 +188,7 @@ skipped.
 | `--profile full\|shell` | `shell`: only the Quickshell shell; your Hyprland config, kitty and zsh are not touched |
 | `--replace-hypr` | Replace an existing non-Sleek `~/.config/hypr` (backed up first) |
 | `--keep-shell` | Do not change the login shell |
-| `--autologin yes\|no` | Explicitly enable TTY1 auto-login; Hyprland starts from the shipped `.zprofile` and Quickshell locks it before the desktop is usable. This bypasses a display manager, so use it only on a machine you control. |
+| `--autologin yes\|no` | TTY1 auto-login (default: yes); Hyprland starts from the shipped `.zprofile` and Quickshell locks it before the desktop is usable. `no` keeps a normal console login. This bypasses a display manager, so use it only on a machine you control. |
 | `--user-only`, `--skip-system` | No `sudo`: install into your home only (the old behaviour) |
 | `--ignore-deps` | With `--user-only` or on other distributions: install the files even when required programs are missing |
 | `--install-deps`, `--with-optional` | Other distributions: install the missing packages after asking (see [DISTROS.md](DISTROS.md)) |
@@ -200,9 +204,9 @@ See [DISTROS.md](DISTROS.md).
 
 ## Starting it
 
-After the reboot, log in on the Sleek Shell greeter (or your display manager, choosing the Hyprland session).
-If you chose `--autologin yes`, TTY1 starts Hyprland directly and presents the lock screen instead; this is intentionally opt-in.
-Without a display manager, log in on the console and run `start-hyprland`.
+After the reboot, TTY1 logs you in, starts Hyprland and presents the lock screen. If you kept another display
+manager or chose `--greeter sleek`, log in there and pick the Hyprland session instead. With `--autologin no` and
+no display manager, log in on the console and run `start-hyprland`.
 
 The first boot also shows the Plymouth animation and the themed GRUB menu configured in step 9. If you installed
 on a system without GRUB or Plymouth, your current boot experience is unchanged.
