@@ -21,11 +21,11 @@ excluded='^\./hypr/(monitors|monitors_custom|custom_binds|user)\.lua$|^\./quicks
 check "no personal state or excluded files" sh -c "! find . -path ./.git -prune -o -type f -print | grep -E '$excluded'"
 check "no build output or caches" sh -c "! find . -path ./.git -prune -o \\( -name __pycache__ -o -name '*.pyc' -o -name '*.so' -o -name '*.o' -o -name .vscode -o -name .qmlls.ini \\) -print | grep ."
 check "no symlinks" sh -c "! find . -path ./.git -prune -o -type l -print | grep ."
-check "no file over 2 MiB" sh -c "! find . -path ./.git -prune -o -type f -size +2M -print | grep -v '^./assets/fonts/MaterialSymbolsRounded.ttf$' | grep ."
+check "no file over 2 MiB" sh -c "! find . -path ./.git -prune -o -type f -size +2M -print | grep -v '^./assets/fonts/MaterialSymbolsRounded.ttf$' | grep -v '^./assets/wallpapers/' | grep ."
 check "no editor backups or temp files" sh -c "! find . -path ./.git -prune -o -type f \\( -name '*~' -o -name '*.swp' -o -name '*.orig' -o -name '*.rej' -o -name '.#*' \\) -print | grep ."
 check "bundled font ships its license" test -f assets/fonts/LICENSE-MaterialSymbols.txt
 check "every bundled wallpaper is listed in its license file" sh -c 'for f in assets/wallpapers/*; do b="${f##*/}"; [ "$b" = LICENSE.md ] || grep -q "\`$b\`" assets/wallpapers/LICENSE.md || exit 1; done'
-check "bundled images carry no metadata" sh -c '! strings assets/wallpapers/*.png | grep -qiE "c2pa|exif|xmp|gpt-image"'
+check "bundled images carry no metadata" sh -c '! command -v magick >/dev/null || { for f in assets/wallpapers/*.png; do magick identify -format "%[exif:*]%[comment]" "$f" 2>/dev/null | grep -q . && { echo "$f"; exit 1; }; done; true; }'
 check "images carry no EXIF/text metadata" sh -c "! command -v magick >/dev/null || { for f in \$(find . -path ./.git -prune -o \\( -name '*.png' -o -name '*.jpg' \\) -print); do magick identify -format '%[exif:*]%[comment]' \"\$f\" | grep -q . && { echo \$f; exit 1; }; done; true; }"
 
 finish

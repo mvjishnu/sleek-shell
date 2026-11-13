@@ -17,6 +17,11 @@ Scope {
     property double lastEventAt: 0
     readonly property bool sleepInhibitorActive: inhibitor.running
     property bool dimmed: false
+    property double idleSinceMs: 0
+    property bool lockFired: false
+    property bool screenOffFired: false
+    property bool suspendFired: false
+    property int idleElapsedSeconds: 0
 
     readonly property var eff: Idle.effective({
         idleLockMin: Settings.idleLockMin, idleScreenOffMin: Settings.idleScreenOffMin, idleSuspendMin: Settings.idleSuspendMin,
@@ -26,6 +31,14 @@ Scope {
     }, UPower.onBattery)
     onEffChanged: note("timeouts" + (eff.battery ? " (battery)" : "") + ": lock " + eff.lock + " min, screen off " + eff.off
                        + " min, suspend " + eff.suspend + " min, dim at " + eff.dimAt + " s")
+
+    // Keep the Wayland monitors immutable. Quickshell 0.3.2 can stop updating
+    // IdleMonitor.isIdle after timeout/enabled/respectInhibitors is changed and
+    // its underlying notification is recreated. These two fixed 1-second
+    // monitors provide activity state; the selected AC/battery deadlines are
+    // evaluated here without changing either monitor's properties.
+    readonly property bool inputIdle: Settings.idleRespectInhibitors ? idleWithInhibitors.isIdle : idleWithoutInhibitors.isIdle
+    onInputIdleChanged: syncInputIdle()
 
     readonly property string sessionPath: {
         var id = Quickshell.env("XDG_SESSION_ID") || "", out = ""
@@ -43,7 +56,58 @@ Scope {
         console.info("idle: " + msg)
     }
 
-    function disp(expr) { Quickshell.execDetached(["hyprctl", "dispatch", expr]) }
+    function syncInputIdle() {
+        if (inputIdle) {
+            if (idleSinceMs === 0) {
+                idleSinceMs = Date.now()
+                lockFired = false
+                screenOffFired = false
+                suspendFired = false
+                idleElapsedSeconds = 0
+                note("idle started" + (eff.battery ? " (battery)" : " (plugged in)"))
+            }
+            evaluateIdle()
+            return
+        }
+        if (idleSinceMs === 0) return
+        idleSinceMs = 0
+        idleElapsedSeconds = 0
+        lockFired = false
+        screenOffFired = false
+        suspendFired = false
+        undim()
+        screenOn()
+        note("activity")
+    }
+
+    function evaluateIdle() {
+        if (idleSinceMs === 0) return
+        var elapsed = idleElapsedSeconds
+        if (eff.dimAt > 0 && elapsed >= eff.dimAt) dim()
+        if (eff.lock > 0 && elapsed >= eff.lock * 60 && !lockFired) {
+            lockFired = true
+            if (testArmed) note("lock skipped (test)")
+            else lockNow("idle " + eff.lock + " min")
+        }
+        if (eff.off > 0 && elapsed >= eff.off * 60 && !screenOffFired) {
+            screenOffFired = true
+            screenOff()
+        }
+        if (eff.suspend > 0 && elapsed >= eff.suspend * 60 && !suspendFired) {
+            suspendFired = true
+            if (testArmed) note("suspend skipped (test)")
+            else {
+                if (!ctl.locked) lockNow("before idle suspend")
+                note("suspend (idle " + eff.suspend + " min)")
+                Quickshell.execDetached(["systemctl", "suspend"])
+            }
+        }
+    }
+
+    // Hyprland dispatchers are named arguments, not Lua expressions. Sending
+    // `hl.dsp.dpms(...)` here is invalid from an IPC client and can leave the
+    // monitor state out of sync with the idle monitor.
+    function setDpms(state) { Quickshell.execDetached(["hyprctl", "dispatch", "dpms", state]) }
 
     function dim() {
         if (dimmed || ctl.locked || screenOffByUs) return
@@ -59,62 +123,53 @@ Scope {
 
     function lockNow(reason) {
         undim()
+        if (testArmed) { note("lock skipped (test: " + reason + ")"); return }
         if (ctl.locked) return
-        note("lock (" + reason + (testArmed ? ", test" : "") + ")")
-        ctl.begin(testArmed)
+        note("lock (" + reason + ")")
+        ctl.begin(false)
     }
 
     function screenOff() {
         if (screenOffByUs) return
+        if (testArmed) {
+            note("screen-off test skipped; display left on")
+            return
+        }
         screenOffByUs = true
         undim()
-        note("screen off" + (testArmed ? " (test)" : ""))
-        disp("hl.dsp.dpms(\"off\")")
-        if (testArmed) screenBack.restart()
+        note("screen off")
+        setDpms("off")
     }
 
     function screenOn() {
-        screenBack.stop()
         if (!screenOffByUs) return
         screenOffByUs = false
         note("screen on")
-        disp("hl.dsp.dpms(\"on\")")
+        setDpms("on")
     }
 
     IdleMonitor {
-        id: dimIdle
-        enabled: guard.eff.dimAt > 0
-        timeout: Math.max(1, guard.eff.dimAt)
-        respectInhibitors: Settings.idleRespectInhibitors
-        onIsIdleChanged: isIdle ? guard.dim() : guard.undim()
+        id: idleWithInhibitors
+        enabled: true
+        timeout: 1
+        respectInhibitors: true
+        onIsIdleChanged: if (Settings.idleRespectInhibitors) guard.syncInputIdle()
     }
-
     IdleMonitor {
-        id: lockIdle
-        enabled: guard.eff.lock > 0
-        timeout: Math.max(1, guard.eff.lock) * 60
-        respectInhibitors: Settings.idleRespectInhibitors
-        onIsIdleChanged: if (isIdle) guard.lockNow("idle " + guard.eff.lock + " min")
+        id: idleWithoutInhibitors
+        enabled: true
+        timeout: 1
+        respectInhibitors: false
+        onIsIdleChanged: if (!Settings.idleRespectInhibitors) guard.syncInputIdle()
     }
-
-    IdleMonitor {
-        id: screenIdle
-        enabled: guard.eff.off > 0
-        timeout: Math.max(1, guard.eff.off) * 60
-        respectInhibitors: Settings.idleRespectInhibitors
-        onIsIdleChanged: isIdle ? guard.screenOff() : guard.screenOn()
-    }
-
-    IdleMonitor {
-        id: suspendIdle
-        enabled: guard.eff.suspend > 0
-        timeout: Math.max(1, guard.eff.suspend) * 60
-        respectInhibitors: Settings.idleRespectInhibitors
-        onIsIdleChanged: {
-            if (!isIdle) return
-            if (guard.testArmed) { guard.note("suspend skipped (test)"); return }
-            guard.note("suspend (idle " + guard.eff.suspend + " min)")
-            Quickshell.execDetached(["systemctl", "suspend"])
+    Timer {
+        // Deadlines only have one-second precision; avoid four wakeups a second.
+        interval: 1000
+        repeat: true
+        running: guard.idleSinceMs > 0
+        onTriggered: {
+            guard.idleElapsedSeconds = Math.floor((Date.now() - guard.idleSinceMs) / 1000)
+            guard.evaluateIdle()
         }
     }
 
@@ -143,12 +198,11 @@ Scope {
         }
     }
 
-    Timer { id: screenBack; interval: 4000; onTriggered: guard.screenOn() }
     Timer { id: testExpiry; interval: 180000; onTriggered: { guard.testArmed = false; guard.note("test mode ended") } }
 
     Process {
         id: inhibitor
-        running: Settings.lockBeforeSleep && !guard.sleepPending
+        running: !guard.sleepPending
         command: ["systemd-inhibit", "--what=sleep", "--mode=delay", "--who=Sleek Shell",
                   "--why=Lock the screen before sleeping", "sleep", "infinity"]
     }
@@ -169,7 +223,6 @@ Scope {
     function onLogind(line) {
         if (line.indexOf(".Manager.PrepareForSleep (true") >= 0) {
             sleepPending = true
-            if (!Settings.lockBeforeSleep) return
             note("preparing for sleep")
             if (ctl.locked && ctl.secure) sleepSettle.restart()
             else { lockNow("before sleep"); sleepFallback.restart() }
@@ -196,12 +249,20 @@ Scope {
         function status(): string {
             return JSON.stringify({
                 onBattery: UPower.onBattery, battery: guard.eff.battery,
-                dim: { enabled: dimIdle.enabled, timeout: dimIdle.timeout, idle: dimIdle.isIdle, dimmed: guard.dimmed },
-                lock: { enabled: lockIdle.enabled, timeout: lockIdle.timeout, idle: lockIdle.isIdle },
-                screenOff: { enabled: screenIdle.enabled, timeout: screenIdle.timeout, idle: screenIdle.isIdle, off: guard.screenOffByUs },
-                suspend: { enabled: suspendIdle.enabled, timeout: suspendIdle.timeout, idle: suspendIdle.isIdle },
+                inputIdle: guard.inputIdle, idleForSeconds: guard.idleElapsedSeconds,
+                idleMonitor: {
+                    timeoutSeconds: 1,
+                    respectingInhibitors: idleWithInhibitors.isIdle,
+                    ignoringInhibitors: idleWithoutInhibitors.isIdle,
+                    respectInhibitorsSetting: Settings.idleRespectInhibitors
+                },
+                dim: { enabled: guard.eff.dimAt > 0, timeout: guard.eff.dimAt, idle: guard.inputIdle, dimmed: guard.dimmed },
+                lock: { enabled: guard.eff.lock > 0, timeout: guard.eff.lock * 60, idle: guard.inputIdle, fired: guard.lockFired },
+                screenOff: { enabled: guard.eff.off > 0, timeout: guard.eff.off * 60, idle: guard.inputIdle, off: guard.screenOffByUs, fired: guard.screenOffFired },
+                suspend: { enabled: guard.eff.suspend > 0, timeout: guard.eff.suspend * 60, idle: guard.inputIdle, fired: guard.suspendFired },
+                idleForSeconds: guard.idleElapsedSeconds,
                 respectInhibitors: Settings.idleRespectInhibitors,
-                lockBeforeSleep: Settings.lockBeforeSleep, sleepInhibitor: inhibitor.running,
+                lockBeforeSleep: true, sleepInhibitor: inhibitor.running,
                 logindWatch: logind.running, session: guard.sessionPath,
                 locked: guard.ctl.locked, test: guard.testArmed,
                 lastEvent: guard.lastEvent, lastEventAgoMs: guard.lastEventAt ? Date.now() - guard.lastEventAt : -1

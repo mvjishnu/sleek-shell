@@ -5,6 +5,44 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-13
+
+### Added
+- **Full desktop sync.** The repository now ships the current live configuration: the Pixel-inspired lock
+  screen, Cava audio visualiser, glass finish controls, the static orbit chooser, the `home`/`pixel` modules and
+  the current Hyprland Lua layout (`env.lua`, `misc.lua`, `windowrules.lua`, `layers.lua`, `monitors.lua`).
+- **Boot experience in the installer.** Plymouth theme (`lone`), `plymouth`/`plymouth-shutdown` mkinitcpio hooks,
+  the `stylish` GRUB theme, `quiet splash`, `GRUB_GFXMODE`, then `mkinitcpio -P` and `grub-mkconfig`. System files
+  are backed up and only rewritten when they change. CachyOS themes are installed automatically; other systems
+  keep their boot menu unless Plymouth is already present.
+- **The full wallpaper collection** (200+ free/open-source images) in `assets/wallpapers`; the installer copies
+  them to `~/Pictures/Wallpapers` and never overwrites existing files.
+- **The reference zsh profile:** `~/.zshrc`, `~/.zprofile`, `~/.p10k.zsh` and Powerlevel10k, with eza aliases,
+  history settings, autosuggestions, syntax highlighting, Rust helpers and a `~/.zshrc.local` hook.
+- **Thunar as the reference file manager**, with `thunar-volman` and `gvfs`; the installer claims `inode/directory`
+  only when no handler is configured.
+- **Cava** is installed with the shell and sleeps when idle.
+- **Auto-login and auto-lock are documented end to end:** opt-in TTY1 login, the PAM-authenticated startup lock,
+  and idle dim → lock → screen off → suspend (separate on battery).
+- New HyDE-style README and refreshed documentation for every module, file and package.
+
+### Changed
+- Hyprland scripts are extensionless (`start-shell`, `wallpaper-next`, `control-osd`, `polkit-agent`,
+  `enable-autologin`); `hypr-tools.py` stays for the settings app.
+- The lock screen fades in over 220 ms (skipped when animations are off), refreshes the clock at lock time and
+  only runs its timer while locked.
+- The password capsule is shown on **one monitor only** — the monitor focused at lock time — and moves to another
+  screen with a 120 ms fade if you start typing there.
+- The installer plan, report and verification now include the boot theme, wallpapers, zsh profile and apps.
+- Screenshots are no longer published; the repository ships wallpapers instead.
+
+### Fixed
+- Hard-coded `/home/<user>` paths in the Hyprland modules, startup script and monitor loader are now
+  `$HOME`/`XDG_CONFIG_HOME` based.
+- `enable-autologin` generates the systemd override for the current user instead of depending on a machine-specific
+  file.
+- `polkit-agent` references in the dependency table and tests follow the extensionless script name.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added
@@ -85,7 +123,7 @@ First public release.
   - theme and cursor hooks.
 - App theming for kitty, rofi, GTK 3/4, Qt/KDE and micro.
 - rofi calculator and unit converter, with an optional C plugin and a script fallback.
-- A bundled wallpaper (`assets/wallpapers/astronaut-planet.png`, MIT), installed only if absent.
+- A bundled wallpaper (`assets/wallpapers/astronaut-planet.jpg`, GPL-3.0), installed only if absent.
 - Optional greetd login greeter with separate install and rollback scripts.
 - Per-user installer (`install.sh`):
   - `full` and `shell` profiles;

@@ -16,6 +16,7 @@ ARCH_BASE_PKGS=(
     networkmanager bluez bluez-utils upower power-profiles-daemon
     xdg-user-dirs xdg-utils gvfs git unzip archlinux-xdg-menu
     kitty awww rofi wl-clipboard cliphist grim slurp jq libnotify pavucontrol brightnessctl playerctl
+    thunar thunar-volman gvfs resources nwg-displays eza fastfetch cava ttf-croscore ttf-indic-otf
     zsh zsh-completions zsh-autosuggestions zsh-syntax-highlighting fzf
     noto-fonts noto-fonts-emoji ttf-jetbrains-mono-nerd inter-font papirus-icon-theme adwaita-cursors
 )
@@ -124,6 +125,16 @@ arch_plan() {
     done <<< "$DEPS_TABLE"
     _add_pkg "${GPU_PKGS[@]}"
     [ "${#GPU_AUR[@]}" = 0 ] || PKG_AUR+=("${GPU_AUR[@]}")
+    # Boot animation and themed boot menu. CachyOS ships the reference themes in its repositories;
+    # other Arch systems keep their current boot unless Plymouth is already installed.
+    case "$DISTRO_ID" in
+        cachyos)
+            _add_pkg plymouth cachyos-plymouth-theme cachyos-plymouth-bootanimation cachyos-grub-theme
+            ;;
+        *)
+            pkg_installed plymouth && _add_pkg plymouth
+            ;;
+    esac
     [ "$greetd" = 1 ] && _add_pkg greetd
     if [ -n "$browser" ] && [ "$browser" != none ]; then _add_pkg "$(browser_field "$browser" 3)"; fi
     for p in "${ARCH_AUDIO_CONFLICTS[@]}"; do pkg_installed "$p" && PKG_REMOVE+=("$p"); done
@@ -298,6 +309,17 @@ arch_login_shell() {
     return 0
 }
 
+# arch_autologin_enable: explicit opt-in TTY1 auto-login.  The accompanying
+# ~/.zprofile starts Hyprland and hypr/scripts/start-shell immediately locks
+# it through Quickshell, so the desktop is not exposed without PAM auth.
+arch_autologin_enable() {
+    local unit=/etc/systemd/system/getty@tty1.service.d/sleek-shell-autologin.conf
+    printf '[Service]\nExecStart=\nExecStart=-/usr/bin/agetty --autologin %s --noreset %%I ${TERM}\n' "$(id -un)" \
+        | priv_write "$unit" 644 || die "could not configure TTY1 auto-login"
+    sys_change "file written: $unit (TTY1 auto-login for $(id -un))"
+    ok "TTY1 auto-login configured for the next boot (the session locks immediately)"
+}
+
 # ------------------------------------------------------------------------------------- greeter
 # greeter_decide CHOICE (auto|sleek|keep): sets GREETER_ACTION and GREETER_OLD from the current display
 # manager. GREETER_ACTION: install (no login screen yet: install + enable), refresh (greetd already runs
@@ -426,6 +448,184 @@ apply_browser() {
         || warn "xdg-mime could not set $desk as the default browser"
 }
 
+# ---------------------------------------------------------------------------------------- boot
+# The reference desktop boots with a Plymouth animation and a themed GRUB menu. Everything here is
+# idempotent: a file is only rewritten when its content would change, and every system file is copied
+# to the backup directory first. Nothing is touched when Plymouth/GRUB are not installed.
+BOOT_CHANGED=0
+BOOT_THEME=""
+_sys_backup() {   # _sys_backup ABSOLUTE_PATH
+    local f="$1" dest
+    [ -e "$f" ] || return 0
+    dest="$BACKUP_DIR/system/${f#/}"
+    if [ "$DRY" = 1 ]; then say "  ${C_Y}would back up${C_0} $f -> $dest"; return 0; fi
+    mkdir -p -- "$(dirname "$dest")" && cp -p -- "$f" "$dest" || warn "could not back up $f"
+}
+
+_plymouth_theme() {
+    local t
+    for t in lone cachyos-bootanimation cachyos bgrt spinner; do
+        [ -d "$SYS_ROOT/usr/share/plymouth/themes/$t" ] && { echo "$t"; return 0; }
+    done
+    return 1
+}
+
+_grub_theme() {
+    local t
+    for t in stylish cachyos starfield; do
+        [ -f "$SYS_ROOT/usr/share/grub/themes/$t/theme.txt" ] && { echo "/usr/share/grub/themes/$t/theme.txt"; return 0; }
+    done
+    return 1
+}
+
+# _boot_write DEST MODE NEW_CONTENT: write only when the content differs; back up the old file
+_boot_write() {
+    local dest="$1" mode="$2" content="$3" cur=""
+    [ -e "$dest" ] && cur="$(cat "$dest" 2>/dev/null || true)"
+    [ "$cur" = "$content" ] && return 0
+    _sys_backup "$dest"
+    printf '%s' "$content" | priv_write "$dest" "$mode" || { warn "could not write $dest"; return 1; }
+    BOOT_CHANGED=1
+    sys_change "file written: $dest"
+    return 0
+}
+
+# _boot_mkinitcpio: make sure the Plymouth hooks are present, in the order the reference desktop uses
+_boot_mkinitcpio() {
+    local conf="$SYS_ROOT/etc/mkinitcpio.conf" line inner new h hooks=() out=()
+    [ -f "$conf" ] || return 0
+    line="$(grep -E '^HOOKS=' "$conf" | tail -n1)"
+    [ -n "$line" ] || return 0
+    inner="${line#HOOKS=(}"; inner="${inner%)}"
+    read -r -a hooks <<< "$inner"
+    for h in "${hooks[@]}"; do
+        case "$h" in plymouth|plymouth-shutdown) continue ;; esac
+        [ "$h" = filesystems ] && out+=(plymouth)
+        out+=("$h")
+    done
+    case " ${out[*]} " in *" plymouth "*) ;; *) out+=(plymouth) ;; esac
+    out+=(plymouth-shutdown)
+    new="HOOKS=(${out[*]})"
+    [ "$new" = "$line" ] && return 0
+    _sys_backup "$conf"
+    sed "s|^HOOKS=.*|$new|" "$conf" | priv_write "$conf" 644 || { warn "could not update $conf"; return 1; }
+    BOOT_CHANGED=1
+    sys_change "file written: $conf ($new)"
+    return 0
+}
+
+# _boot_grub: theme, splash and quiet on the kernel command line, then regenerate grub.cfg
+_boot_grub() {
+    local conf="$SYS_ROOT/etc/default/grub" theme cur words=() w line new
+    [ -f "$conf" ] || return 0
+    theme="$(_grub_theme || true)"
+
+    # Kernel command line: keep every existing parameter, add splash/quiet when missing.
+    # Only rewrite when a parameter is actually added, so a system that already has them
+    # (in any quoting style) is left byte-for-byte alone.
+    line="$(grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' "$conf" | tail -n1)"
+    if [ -n "$line" ]; then
+        cur="${line#*=}"; cur="${cur%\"}"; cur="${cur#\"}"; cur="${cur%\'}"; cur="${cur#\'}"
+        read -r -a words <<< "$cur"
+        added=0
+        for w in splash quiet; do
+            case " ${words[*]} " in *" $w "*) ;; *) words+=("$w"); added=1 ;; esac
+        done
+        if [ "$added" = 1 ]; then
+            new="GRUB_CMDLINE_LINUX_DEFAULT=\"${words[*]}\""
+            _sys_backup "$conf"
+            sed "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|$new|" "$conf" | priv_write "$conf" 644 \
+                || warn "could not update the kernel command line in $conf"
+            BOOT_CHANGED=1
+            sys_change "GRUB kernel command line: ${words[*]}"
+        fi
+    fi
+
+    if [ -n "$theme" ]; then
+        line="$(grep -E '^GRUB_THEME=' "$conf" | tail -n1)"
+        new="GRUB_THEME=\"$theme\""
+        if [ "$new" != "$line" ]; then
+            _sys_backup "$conf"
+            if [ -n "$line" ]; then
+                sed "s|^GRUB_THEME=.*|$new|" "$conf" | priv_write "$conf" 644 || warn "could not set GRUB_THEME"
+            else
+                { cat "$conf"; printf '%s\n' "$new"; } | priv_write "$conf" 644 || warn "could not set GRUB_THEME"
+            fi
+            BOOT_CHANGED=1
+            sys_change "GRUB theme: $theme"
+        fi
+    fi
+
+    # A screen resolution the theme can draw on. Only added when the file has no GRUB_GFXMODE.
+    if ! grep -qE '^GRUB_GFXMODE=' "$conf"; then
+        _sys_backup "$conf"
+        { cat "$conf"; printf '%s\n' 'GRUB_GFXMODE=1920x1080,auto'; } | priv_write "$conf" 644 || true
+        BOOT_CHANGED=1
+        sys_change "GRUB graphics mode: 1920x1080,auto"
+    fi
+    return 0
+}
+
+# arch_boot_apply: Plymouth theme + mkinitcpio hooks + GRUB theme/splash, then rebuild both
+arch_boot_apply() {
+    local theme conf
+    BOOT_CHANGED=0 BOOT_THEME=""
+    if ! pkg_installed plymouth && ! { [ "$DRY" = 1 ] && [[ " ${PKG_REPO[*]} " == *" plymouth "* ]]; }; then
+        ok "boot animation: Plymouth not installed (kept the current boot)"
+        return 0
+    fi
+    if ! theme="$(_plymouth_theme)"; then
+        warn "no Plymouth theme found: boot animation unchanged (install cachyos-plymouth-theme or plymouth-themes)"
+        return 0
+    fi
+    BOOT_THEME="$theme"
+    conf="$SYS_ROOT/etc/plymouth/plymouthd.conf"
+    # Keep the file (and its comments) untouched when it already asks for this theme.
+    if ! grep -qx "Theme=$theme" "$conf" 2>/dev/null; then
+        _boot_write "$conf" 644 "[Daemon]
+Theme=$theme
+" || true
+    fi
+    _boot_mkinitcpio || true
+    _boot_grub || true
+
+    if [ "$DRY" = 1 ]; then
+        if [ "$BOOT_CHANGED" = 1 ] || ! grep -q 'plymouth' "$SYS_ROOT/etc/mkinitcpio.conf" 2>/dev/null; then
+            say "  ${C_Y}would rebuild${C_0} the initramfs (mkinitcpio -P) and the GRUB menu (grub-mkconfig)"
+        else
+            say "  boot files already match; no initramfs or GRUB rebuild needed"
+        fi
+        ok "boot animation: Plymouth $theme, GRUB theme $(_grub_theme || echo 'kept'), splash + quiet"
+        return 0
+    fi
+    if [ "$BOOT_CHANGED" = 1 ] || ! grep -q 'plymouth' "$SYS_ROOT/etc/mkinitcpio.conf" 2>/dev/null; then
+        if command -v mkinitcpio >/dev/null 2>&1; then
+            priv mkinitcpio -P || warn "mkinitcpio -P failed: run it yourself before rebooting"
+            sys_change "initramfs rebuilt (mkinitcpio -P)"
+        fi
+        if command -v grub-mkconfig >/dev/null 2>&1 && [ -f "$SYS_ROOT/etc/default/grub" ]; then
+            priv grub-mkconfig -o /boot/grub/grub.cfg || warn "grub-mkconfig failed: run it yourself before rebooting"
+            sys_change "GRUB menu regenerated (grub-mkconfig)"
+        fi
+    fi
+    ok "boot animation: Plymouth $theme, GRUB theme $(_grub_theme || echo 'kept'), splash + quiet"
+    return 0
+}
+
+# arch_zsh_theme: Powerlevel10k in ~/.powerlevel10k (the shipped ~/.zshrc sources it there)
+arch_zsh_theme() {
+    local dest="$HOME/.powerlevel10k"
+    if [ -r "$dest/powerlevel10k.zsh-theme" ]; then ok "Powerlevel10k: installed"; return 0; fi
+    if [ "$DRY" = 1 ]; then say "  ${C_Y}would install${C_0} Powerlevel10k in ${dest/#$HOME/\~}"; return 0; fi
+    command -v git >/dev/null 2>&1 || { warn "git is missing: Powerlevel10k not installed (zsh uses its built-in prompt)"; return 0; }
+    if git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$dest" >/dev/null 2>&1; then
+        ok "Powerlevel10k installed in ${dest/#$HOME/\~}"
+    else
+        warn "could not clone Powerlevel10k: zsh uses its built-in prompt (retry: git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.powerlevel10k)"
+    fi
+    return 0
+}
+
 # --------------------------------------------------------------------------------------- verify
 VERIFY_LINES=()
 VERIFY_FAILED=0
@@ -448,6 +648,13 @@ arch_verify() {
     _v "bluetooth.service enabled" unit_enabled bluetooth.service
     pkg_installed power-profiles-daemon && _v "power-profiles-daemon enabled" unit_enabled power-profiles-daemon.service
     _v "JetBrainsMono Nerd Font installed" sh -c 'fc-list : family | grep -qi "JetBrainsMono Nerd Font"'
+    for p in cava thunar resources nwg-displays; do
+        pkg_installed "$p" && _v "$p installed" true
+    done
+    if [ -n "$BOOT_THEME" ]; then
+        _v "Plymouth theme: $BOOT_THEME" grep -qE "^Theme=$BOOT_THEME$" "$SYS_ROOT/etc/plymouth/plymouthd.conf"
+        _v "initramfs includes Plymouth" grep -q 'plymouth' "$SYS_ROOT/etc/mkinitcpio.conf"
+    fi
     if [ "$GPU_PROPRIETARY" = 1 ]; then
         _v "NVIDIA kernel mode setting configured" sh -c '[ -z "$1" ]' _ "$(gpu_modprobe_lines)"
         unit_exists nvidia-suspend.service && _v "NVIDIA suspend services enabled" sh -c 'for u in nvidia-suspend nvidia-resume; do [ "$(systemctl is-enabled $u.service 2>/dev/null)" = enabled ] || exit 1; done'

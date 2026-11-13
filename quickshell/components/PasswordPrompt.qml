@@ -10,6 +10,8 @@ Rectangle {
     property string ssid: ""
     property string note: ""
     property bool reveal: false
+    readonly property bool validPassword: entry.text.length >= 8 && entry.text.length <= 63
+        || (entry.text.length === 64 && /^[0-9a-fA-F]{64}$/.test(entry.text))
     signal submit(string value)
     signal cancel()
 
@@ -73,7 +75,7 @@ Rectangle {
                     echoMode: p.reveal ? TextInput.Normal : TextInput.Password
                     passwordCharacter: "•"
                     inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
-                    maximumLength: 63
+                    maximumLength: 64
                     color: Theme.text
                     selectionColor: Theme.accent
                     selectedTextColor: Theme.onAccent
@@ -99,7 +101,7 @@ Rectangle {
             spacing: 8
             Text { text: "Enter to connect · Esc to cancel"; color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm; Layout.fillWidth: true; elide: Text.ElideRight }
             UiBtn { label: "Cancel"; onClicked: p.cancel() }
-            UiBtn { label: "Connect"; selected: true; enabled: entry.text.length >= 8; onClicked: p.send() }
+            UiBtn { label: "Connect"; selected: true; enabled: p.validPassword; onClicked: p.send() }
         }
     }
 }

@@ -38,7 +38,7 @@ browsers your repositories do not have. `./install.sh` installs, configures and 
 packages it would install. With `--user-only` only your home is changed; then install at least:
 ```sh
 sudo pacman -S --needed hyprland quickshell python awww wl-clipboard cliphist rofi fontconfig xdg-utils \
-    ttf-jetbrains-mono-nerd kitty dolphin xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpolkitagent \
+    ttf-jetbrains-mono-nerd kitty thunar thunar-volman gvfs resources nwg-displays xdg-desktop-portal-hyprland xdg-desktop-portal-gtk hyprpolkitagent \
     wireplumber upower networkmanager libnotify glib2 jq grim slurp inter-font noto-fonts papirus-icon-theme \
     adwaita-cursors
 ```

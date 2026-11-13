@@ -10,12 +10,12 @@ import qs.modules.settings
 SettingsPage {
     id: wp
     title: "Wallpaper"
-    subtitle: "Powered by awww through wallpaper-next.sh, the same script SUPER+W uses, so the choice is remembered."
+    subtitle: "Powered by awww through wallpaper-next. Your desktop choice is restored at startup and kept separate from the lock screen."
     property string current: ""
 
     function apply(args) {
         Sys.run(["env", "WALLPAPER_DIR=" + Settings.wallpaperPath, "AWWW_TRANSITION=" + Settings.wallpaperTransition,
-                 Quickshell.env("HOME") + "/.config/hypr/scripts/wallpaper-next.sh"].concat(args))
+                 Quickshell.env("HOME") + "/.config/hypr/scripts/wallpaper-next"].concat(args))
         reread.restart()
     }
     FileView {
@@ -58,7 +58,7 @@ SettingsPage {
                     anchors { fill: parent; margins: 5 }
                     radius: Theme.controlRadius
                     color: Theme.surfaceHi
-                    border.width: cell.selected ? 3 : (cma.containsMouse ? 2 : 0)
+                    border.width: Theme.shellBorders ? (cell.selected ? 3 : (cma.containsMouse ? 2 : 0)) : 0
                     border.color: cell.selected ? Theme.accent : Theme.border
                     clip: true
                     Image {
@@ -94,6 +94,7 @@ SettingsPage {
     }
     SettingsSection {
         title: "Behaviour"
+        subtitle: "The transition is used by SUPER+W / SUPER+SHIFT+W, the buttons above, and startup restore."
         SectionLabel { title: "Transition" }
         Flow {
             Layout.fillWidth: true
@@ -112,7 +113,7 @@ SettingsPage {
         }
         Text {
             Layout.fillWidth: true; wrapMode: Text.WordWrap
-            text: "SUPER+W / SUPER+SHIFT+W always use ~/Pictures/Wallpapers unless WALLPAPER_DIR is set; this page passes your folder and transition explicitly."
+            text: "SUPER+W / SUPER+SHIFT+W use the folder and transition chosen here. This page also passes them explicitly so changes apply immediately."
             color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm
         }
     }

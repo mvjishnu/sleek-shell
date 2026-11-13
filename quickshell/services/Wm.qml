@@ -89,6 +89,7 @@ Singleton {
     // workspace/monitor from the persisted record. Stale records are pruned here.
     function windows() {
         var out = [], seen = ({}), v = Hyprland.toplevels.values
+        var active = Hyprland.activeToplevel, activeAddr = active ? addr(active) : ""
         for (var i = 0; i < v.length; ++i) {
             var t = v[i], o = t.lastIpcObject || ({})
             if (o.mapped === false) continue
@@ -103,7 +104,7 @@ Singleton {
             out.push({
                 address: a, title: t.title || o.title || cls, cls: cls, icon: iconFor(cls),
                 wsId: (isMin && rec) ? rec.ws : wsId, mon: mon, minimized: isMin,
-                floating: !!o.floating, at: o.at || [0, 0], size: o.size || [100, 100],
+                floating: !!o.floating, focused: a === activeAddr, at: o.at || [0, 0], size: o.size || [100, 100],
                 special: wsId < 0 && !isMin, toplevel: t
             })
         }
@@ -158,10 +159,15 @@ Singleton {
     function stepWs(mon, d) {
         mon = mon || focusedMon()
         var ids = wsIds(mon)
-        if (ids.length < 2) return
         var i = ids.indexOf(activeWsId(mon))
-        i = i < 0 ? 0 : (i + d + ids.length) % ids.length
-        gotoWs(ids[i])
+        if (i < 0) i = 0
+        var next = i + d
+        if (next < 0) return
+        if (next >= ids.length) {
+            if (d > 0) createWs(mon, true)
+            return
+        }
+        gotoWs(ids[next])
     }
 
     // ---------------------------------------------------------------- minimise / restore

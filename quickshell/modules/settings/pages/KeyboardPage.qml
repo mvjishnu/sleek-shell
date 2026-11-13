@@ -12,7 +12,7 @@ import qs.modules.settings
 // which validates, refuses conflicts, regenerates the Lua, reloads Hyprland and rolls back on errors.
 Item {
     id: kp
-    readonly property string tools: Quickshell.env("HOME") + "/.config/hypr/scripts/hypr-tools.py"
+    readonly property string tools: Quickshell.env("HOME") + "/.local/share/sleek-shell/hypr/scripts/hypr-tools.py"
     property var binds: []
     property var model: ({ overrides: { disabled: [], remap: {} }, custom: [] })
     property var actions: ({ dispatch: [], shell: [] })
@@ -27,6 +27,8 @@ Item {
     property string newKeys: ""     // pending keys for a built-in remap
     property bool capturing: false
     property string captureFor: ""  // "remap" | "custom"
+    property var heldModifiers: []
+    property string capturePreview: ""
     readonly property var cats: ["All", "Applications", "Windows", "Workspaces", "Shell", "Media & hardware", "Screenshots", "Desktop", "Session", "Custom", "Disabled"]
 
     // ------------------------------------------------------------------ data
@@ -41,7 +43,6 @@ Item {
                 var r; try { r = JSON.parse(text) } catch (e) { r = { ok: false, error: "unreadable helper output" } }
                 if (!r.ok) { kp.msg = "Could not read shortcuts: " + r.error; kp.bad = true; return }
                 kp.binds = r.binds; kp.model = r.model
-                if (r.conflicts && r.conflicts.length) { kp.msg = "Conflict: " + r.conflicts[0].keys + " is bound twice"; kp.bad = true }
                 if (kp.sel) { var s = kp.find(kp.sel.id); kp.sel = s }
             }
         }
@@ -53,10 +54,11 @@ Item {
     }
     Process {
         id: saveP
+        stderr: StdioCollector { id: saveErr }
         stdout: StdioCollector {
             onStreamFinished: {
                 kp.busy = false
-                var r; try { r = JSON.parse(text) } catch (e) { r = { ok: false, error: "unreadable helper output" } }
+                var r; try { r = JSON.parse(text) } catch (e) { r = { ok: false, error: saveErr.text.trim() || "Shortcut helper returned no result" } }
                 kp.bad = !r.ok
                 kp.msg = r.ok ? (r.message || (r.path ? "Exported to " + r.path.replace(Quickshell.env("HOME"), "~") : "Saved")) : r.error
                 if (r.ok && !r.path) { kp.edit = null; kp.newKeys = "" }
@@ -116,30 +118,60 @@ Item {
         m[Qt.Key_Backspace] = "BackSpace"; m[Qt.Key_Insert] = "Insert"; m[Qt.Key_Escape] = "Escape"
         m[Qt.Key_VolumeUp] = "XF86AudioRaiseVolume"; m[Qt.Key_VolumeDown] = "XF86AudioLowerVolume"; m[Qt.Key_VolumeMute] = "XF86AudioMute"
         m[Qt.Key_MediaPlay] = "XF86AudioPlay"; m[Qt.Key_MediaNext] = "XF86AudioNext"; m[Qt.Key_MediaPrevious] = "XF86AudioPrev"
-        return m[k] || ""
+        if (m[k]) return m[k]
+        if (text && text.length === 1 && /^[A-Za-z0-9_:.\\-]$/.test(text)) return text.toLowerCase()
+        return ""
     }
     function startCapture(target) {
-        captureFor = target; capturing = true
-        Sys.run(["hyprctl", "dispatch", "hl.dsp.submap(\"sleekshell_capture\")"])
-        catcher.forceActiveFocus()
+        captureFor = target; heldModifiers = []; capturePreview = ""; capturing = true
+        Sys.run(["hyprctl", "dispatch", "submap", "sleekshell_capture"])
+        Qt.callLater(function() { captureSink.forceActiveFocus() })
     }
     function stopCapture() {
         if (!capturing) return
-        capturing = false
-        Sys.run(["hyprctl", "dispatch", "hl.dsp.submap(\"reset\")"])
+        capturing = false; heldModifiers = []; capturePreview = ""
+        Sys.run(["hyprctl", "dispatch", "submap", "reset"])
     }
     Component.onDestruction: stopCapture()
     Connections { target: Ui; function onSettingsOpenChanged() { if (!Ui.settingsOpen) kp.stopCapture() } }
+    function modifierName(k) {
+        if (k === Qt.Key_Shift) return "SHIFT"
+        if (k === Qt.Key_Control) return "CTRL"
+        if (k === Qt.Key_Alt || k === Qt.Key_AltGr) return "ALT"
+        if (k === Qt.Key_Meta || k === Qt.Key_Super_L || k === Qt.Key_Super_R) return "SUPER"
+        return ""
+    }
+    function trackModifier(name, down) {
+        var mods = heldModifiers.slice(), i = mods.indexOf(name)
+        if (down && i < 0) mods.push(name)
+        else if (!down && i >= 0) mods.splice(i, 1)
+        heldModifiers = mods
+    }
     function captured(e) {
+        // Modifier presses are separate key events. Retain them until the chord's
+        // non-modifier key arrives, even when the platform omits them from e.modifiers.
+        var onlyModifier = modifierName(e.key)
+        if (onlyModifier !== "") { trackModifier(onlyModifier, true); return }
         if (e.key === Qt.Key_Escape && !(e.modifiers & (Qt.MetaModifier | Qt.ControlModifier | Qt.AltModifier))) { stopCapture(); return }
         var n = keyName(e.key, e.text)
         if (n === "") return
-        var mods = []
-        if (e.modifiers & Qt.MetaModifier) mods.push("SUPER")
-        if (e.modifiers & Qt.ControlModifier) mods.push("CTRL")
-        if (e.modifiers & Qt.AltModifier) mods.push("ALT")
-        if (e.modifiers & Qt.ShiftModifier) mods.push("SHIFT")
+        var mods = heldModifiers.slice()
+        if (e.modifiers & Qt.MetaModifier && mods.indexOf("SUPER") < 0) mods.push("SUPER")
+        if (e.modifiers & Qt.ControlModifier && mods.indexOf("CTRL") < 0) mods.push("CTRL")
+        if (e.modifiers & Qt.AltModifier && mods.indexOf("ALT") < 0) mods.push("ALT")
+        if (e.modifiers & Qt.ShiftModifier && mods.indexOf("SHIFT") < 0) mods.push("SHIFT")
+        // QtWayland can report an empty Qt modifier mask for a key event even
+        // while the compositor's XKB modifier state is set. XKB's standard
+        // Shift/Control/Mod1/Mod4 masks are 1/4/8/64.
+        var native = Number(e.nativeModifiers || 0)
+        if ((native & 1) && mods.indexOf("SHIFT") < 0) mods.push("SHIFT")
+        if ((native & 4) && mods.indexOf("CTRL") < 0) mods.push("CTRL")
+        if ((native & 8) && mods.indexOf("ALT") < 0) mods.push("ALT")
+        if ((native & 64) && mods.indexOf("SUPER") < 0) mods.push("SUPER")
+        var order = ["SUPER", "CTRL", "ALT", "SHIFT"]
+        mods.sort(function(a, b) { return order.indexOf(a) - order.indexOf(b) })
         var keys = mods.concat([n]).join(" + ")
+        capturePreview = keys
         if (captureFor === "remap") newKeys = keys
         else if (edit) setE("keys", keys)
         stopCapture()
@@ -193,8 +225,20 @@ Item {
                  flags: it.flags || {}, confirmed: !!it.confirmed, isNew: false, check: null, appQuery: "" }
         validate()
     }
-    function setE(k, v) { var e = JSON.parse(JSON.stringify(edit)); e[k] = v; e.check = null; edit = e; valT.restart() }
+    function scheduleValidation() { valT.restart() }
+    function setE(k, v) { var e = JSON.parse(JSON.stringify(edit)); e[k] = v; e.check = null; edit = e; scheduleValidation() }
+    function setAppCommand(v) {
+        var e = JSON.parse(JSON.stringify(edit))
+        e.value = v; e.app = ""; e.check = null; edit = e; scheduleValidation()
+    }
     Timer { id: valT; interval: 350; onTriggered: kp.validate() }
+    function setKind(kind) {
+        if (!edit) return
+        var next = JSON.parse(JSON.stringify(edit))
+        next.kind = kind; next.value = ""; next.app = ""; next.check = null
+        edit = next
+        scheduleValidation()
+    }
     function editItem() {
         var e = edit
         var it = { id: e.id, keys: e.keys, kind: e.kind, value: e.value, desc: e.desc, enabled: e.enabled, flags: e.flags }
@@ -210,6 +254,7 @@ Item {
     }
     function saveCustom() {
         if (!edit) return
+        stopCapture()
         if (edit.keys.trim() === "") { msg = "Record or type a shortcut first"; bad = true; return }
         if (edit.value.trim() === "") { msg = "Choose what the shortcut should do"; bad = true; return }
         var c = conflictsFor(edit.keys, "c:" + edit.id)
@@ -235,8 +280,6 @@ Item {
     FocusScope {
         id: catcher
         anchors.fill: parent
-        Keys.onPressed: e => { if (kp.capturing) { kp.captured(e); e.accepted = true } }
-
         ColumnLayout {
             anchors { fill: parent; leftMargin: 24; rightMargin: 24; topMargin: 22; bottomMargin: 16 }
             spacing: 12
@@ -407,7 +450,7 @@ Item {
                                 Layout.fillWidth: true
                                 spacing: 10
                                 Text { text: kp.edit && kp.edit.isNew ? "New shortcut" : "Edit shortcut"; color: Theme.text; font.family: Theme.font; font.pixelSize: 16; font.weight: Font.DemiBold }
-                                SectionLabel { title: "Keys" }
+                                SectionLabel { title: "Keys"; subtitle: "Record or type a chord. It appears here before Apply shortcut saves and applies it." }
                                 RowLayout {
                                     Layout.fillWidth: true
                                     spacing: 6
@@ -424,7 +467,10 @@ Item {
                                     Repeater {
                                         model: [{ id: "app", l: "Open app" }, { id: "command", l: "Run command" }, { id: "script", l: "Run script" }, { id: "shell", l: "Desktop action" }, { id: "dispatch", l: "Window action" }]
                                         delegate: UiBtn { required property var modelData; label: modelData.l; selected: kp.edit && kp.edit.kind === modelData.id
-                                                          onClicked: { kp.setE("kind", modelData.id); kp.setE("value", ""); kp.setE("app", "") } }
+                                                          onClicked: {
+                                                              kp.setKind(modelData.id)
+                                                              if (modelData.id === "command") Qt.callLater(function() { commandField.focusField() })
+                                                          } }
                                     }
                                 }
                                 // app picker
@@ -454,9 +500,11 @@ Item {
                                         }
                                     }
                                     Text { visible: !!kp.edit && kp.edit.value !== ""; text: kp.edit ? "Runs: " + kp.edit.value : ""; color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm; Layout.fillWidth: true; wrapMode: Text.WrapAnywhere }
+                                    UiField { Layout.fillWidth: true; placeholder: "Or type an app command, e.g. codium"; text: kp.edit && kp.edit.kind === "app" ? kp.edit.value : ""; onEdited: kp.setAppCommand(text) }
                                 }
                                 // command
                                 UiField {
+                                    id: commandField
                                     visible: !!kp.edit && kp.edit.kind === "command"
                                     Layout.fillWidth: true
                                     placeholder: "e.g. kitty -e btop"
@@ -524,7 +572,7 @@ Item {
                                 }
                                 RowLayout {
                                     spacing: 6
-                                    UiBtn { label: "Save"; code: Theme.ic.save; selected: true; enabled: !kp.busy; onClicked: kp.saveCustom() }
+                                    UiBtn { label: "Apply shortcut"; code: Theme.ic.save; selected: true; enabled: !kp.busy; onClicked: kp.saveCustom() }
                                     UiBtn { label: "Cancel"; onClicked: { kp.stopCapture(); kp.edit = null; kp.sel = null } }
                                     Item { Layout.fillWidth: true }
                                     UiBtn { visible: kp.edit && !kp.edit.isNew; label: "Delete"; code: Theme.ic.trash; danger: true; enabled: !kp.busy; onClicked: kp.deleteCustom(kp.edit.id) }
@@ -561,7 +609,19 @@ Item {
             width: hint.implicitWidth + 32; height: 40
             radius: 20
             color: Theme.accent
-            Text { id: hint; anchors.centerIn: parent; text: "Press the new shortcut · Esc cancels"; color: Theme.onAccent; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold }
+            Text { id: hint; anchors.centerIn: parent; text: kp.capturePreview || (kp.heldModifiers.length ? kp.heldModifiers.join(" + ") + " + …" : "Press the new shortcut · Esc cancels"); color: Theme.onAccent; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold }
+        }
+        // A dedicated focused input receives modifier state directly from QtWayland.
+        // Keys are intercepted before TextInput can insert them as ordinary text.
+        TextInput {
+            id: captureSink
+            width: 1; height: 1
+            opacity: 0
+            enabled: kp.capturing
+            focus: kp.capturing
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: e => { if (kp.capturing) { kp.captured(e); e.accepted = true } }
+            Keys.onReleased: e => { if (kp.capturing) { var m = kp.modifierName(e.key); if (m !== "") { kp.trackModifier(m, false); e.accepted = true } } }
         }
     }
 }

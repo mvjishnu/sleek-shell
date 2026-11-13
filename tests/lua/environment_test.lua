@@ -1,60 +1,46 @@
--- modules/environment_variables.lua: NVIDIA variables only on NVIDIA-only systems; ~/.local/bin on PATH.
+-- modules/env.lua: toolkit and Wayland variables, and the cursor state from
+-- ~/.config/sleek-shell/hypr-cursor.lua (falling back to size 24).
 package.path = "./?.lua;" .. package.path
 local function fail(msg) io.stderr:write("FAIL: " .. msg .. "\n"); os.exit(1) end
 
 local home = os.getenv("HOME")
-local function sysroot(name, vendors, nvidia_loaded)
-    local root = home .. "/" .. name
-    for i, v in ipairs(vendors) do
-        local d = root .. "/sys/class/drm/card" .. i .. "/device"
-        os.execute('mkdir -p "' .. d .. '"')
-        local f = io.open(d .. "/vendor", "w"); f:write(v .. "\n"); f:close()
-    end
-    if nvidia_loaded then
-        os.execute('mkdir -p "' .. root .. '/proc/driver/nvidia"')
-        local f = io.open(root .. "/proc/driver/nvidia/version", "w"); f:write("NVRM\n"); f:close()
-    end
-    return root
-end
 
-local real_getenv = os.getenv
-local function load(root, extra)
+local function load()
     local env = {}
     hl = { env = function(k, v) env[k] = v end }
-    os.getenv = function(k)
-        if k == "SLEEK_SYS_ROOT" then return root end
-        if extra and extra[k] ~= nil then return extra[k] end
-        return real_getenv(k)
-    end
-    package.loaded["modules.environment_variables"] = nil
-    require("modules.environment_variables")
-    os.getenv = real_getenv
+    package.loaded["modules.env"] = nil
+    package.loaded["sleekshell.cursor"] = nil
+    require("modules.env")
     return env
 end
 
-local e = load(sysroot("hybrid", { "0x10de", "0x1002" }, true), { PATH = "/usr/bin" })
-if e.LIBVA_DRIVER_NAME then fail("hybrid NVIDIA + AMD must not set LIBVA_DRIVER_NAME") end
-if e.__GLX_VENDOR_LIBRARY_NAME then fail("hybrid must not set __GLX_VENDOR_LIBRARY_NAME") end
-if e.PATH ~= home .. "/.local/bin:/usr/bin" then fail("PATH should start with ~/.local/bin, got " .. tostring(e.PATH)) end
+-- No state file: defaults, and every toolkit/Wayland variable is set.
+local e = load()
+if e.XCURSOR_SIZE ~= "24" or e.HYPRCURSOR_SIZE ~= "24" then fail("default cursor size should be 24") end
+if e.XCURSOR_THEME or e.HYPRCURSOR_THEME then fail("no theme should be exported without a state file") end
+if e.GDK_BACKEND ~= "wayland,x11,*" then fail("GDK_BACKEND should prefer Wayland") end
+if e.QT_QPA_PLATFORM ~= "wayland;xcb" then fail("QT_QPA_PLATFORM should prefer Wayland") end
+if e.SDL_VIDEODRIVER ~= "wayland" then fail("SDL_VIDEODRIVER should be wayland") end
+if e.XDG_CURRENT_DESKTOP ~= "Hyprland" or e.XDG_SESSION_TYPE ~= "wayland" then
+    fail("XDG session variables should describe Hyprland on Wayland")
+end
+if e.QT_QPA_PLATFORMTHEME ~= "qt5ct" then fail("QT_QPA_PLATFORMTHEME should be qt5ct") end
 
-e = load(sysroot("nvonly", { "0x10de" }, true))
-if e.LIBVA_DRIVER_NAME ~= "nvidia" then fail("NVIDIA-only with the driver loaded should set LIBVA_DRIVER_NAME") end
+-- A valid state file is exported as-is.
+os.execute('mkdir -p "' .. home .. '/.config/sleek-shell"')
+local f = io.open(home .. "/.config/sleek-shell/hypr-cursor.lua", "w")
+f:write('return { theme = "Adwaita", size = 32 }\n')
+f:close()
+e = load()
+if e.XCURSOR_THEME ~= "Adwaita" or e.HYPRCURSOR_THEME ~= "Adwaita" then fail("cursor theme should be exported") end
+if e.XCURSOR_SIZE ~= "32" or e.HYPRCURSOR_SIZE ~= "32" then fail("cursor size should be exported") end
 
-e = load(sysroot("nvonly-nouveau", { "0x10de" }, false))
-if e.LIBVA_DRIVER_NAME then fail("without the proprietary driver loaded nothing NVIDIA-specific is set") end
+-- Broken or out-of-range values fall back instead of exporting garbage.
+f = io.open(home .. "/.config/sleek-shell/hypr-cursor.lua", "w")
+f:write('return { theme = "bad/theme", size = 999 }\n')
+f:close()
+e = load()
+if e.XCURSOR_THEME then fail("an invalid theme must not be exported") end
+if e.XCURSOR_SIZE ~= "96" then fail("size should be clamped to 96, got " .. tostring(e.XCURSOR_SIZE)) end
 
-e = load(home .. "/hybrid", { SLEEK_NVIDIA_ENV = "1" })
-if e.LIBVA_DRIVER_NAME ~= "nvidia" then fail("SLEEK_NVIDIA_ENV=1 forces the NVIDIA variables") end
-
-e = load(home .. "/nvonly", { PATH = home .. "/.local/bin:/usr/bin" })
-if e.PATH then fail("PATH already containing ~/.local/bin must not be changed") end
-if e.XDG_MENU_PREFIX then fail("XDG_MENU_PREFIX must not be set without arch-applications.menu") end
-
-local menu = home .. "/withmenu"
-os.execute('mkdir -p "' .. menu .. '/etc/xdg/menus"')
-local mf = io.open(menu .. "/etc/xdg/menus/arch-applications.menu", "w"); mf:write("<Menu/>\n"); mf:close()
-e = load(menu, { XDG_MENU_PREFIX = false })
-if e.XDG_MENU_PREFIX ~= "arch-" then fail("arch-applications.menu present: XDG_MENU_PREFIX should be arch-, got " .. tostring(e.XDG_MENU_PREFIX)) end
-e = load(menu, { XDG_MENU_PREFIX = "plasma-" })
-if e.XDG_MENU_PREFIX then fail("an XDG_MENU_PREFIX the user already has must be kept") end
 print("ok")

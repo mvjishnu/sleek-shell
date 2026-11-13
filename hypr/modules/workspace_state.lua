@@ -30,7 +30,7 @@ local M = {}
 
 -- How many workspaces a monitor gets when it shows up for the first time and
 -- nothing else is known about it.
-M.DEFAULT_PER_MONITOR = 5
+M.DEFAULT_PER_MONITOR = 1
 
 local function xdg_dir(env, fallback)
     local v = os.getenv(env)

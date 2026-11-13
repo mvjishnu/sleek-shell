@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+kind="${1:?volume|brightness required}"
+direction="${2:?up|down|mute required}"
+case "$kind:$direction" in
+  volume:up) wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+  volume:down) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
+  volume:mute) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+  brightness:up|brightness:down)
+    step="5%+"
+    [[ "$direction" == down ]] && step="5%-"
+    # Select the panel backlight explicitly. `brightnessctl`'s implicit device
+    # choice can land on a keyboard LED on machines with no ordered backlight.
+    if brightnessctl -l 2>/dev/null | grep -q "Device 'intel_backlight'"; then
+      brightnessctl -q -d intel_backlight set "$step"
+    else
+      brightnessctl -q set "$step"
+    fi
+    ;;
+  *) echo "Usage: $0 volume|brightness up|down|mute" >&2; exit 2 ;;
+esac
+# Volume changes are observed by Quickshell's PipeWire service. Brightness has
+# no event source, so ask its OSD handler to re-read sysfs and update the island.
+if [[ "$kind" == brightness ]]; then
+  quickshell ipc call osd brightness >/dev/null 2>&1 || true
+fi

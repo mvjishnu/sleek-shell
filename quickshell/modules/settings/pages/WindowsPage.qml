@@ -10,13 +10,26 @@ SettingsPage {
     subtitle: "Compositor geometry and transparency. Applied live through Hyprland and kept across reloads."
 
     SettingsSection {
+        title: "Window borders"
+        SettingRow {
+            title: "Window and app borders"
+            subtitle: Theme.borderWidth > 0 ? Theme.borderWidth + " px · always visible · click to turn off" : "Off · click to turn on"
+            Toggle {
+                checked: Theme.borderWidth > 0
+                accessibleName: "Window borders"
+                onToggled: Theme.setGlobalBorders(!(Theme.borderWidth > 0))
+            }
+        }
+    }
+
+    SettingsSection {
         title: "Geometry"
         LabeledSlider {
-            label: "Window corner radius"; valueText: Theme.windowRounding + " px"
+            label: "Window and bar corner radius"; valueText: Theme.windowRounding === 0 ? "0 px · square" : Theme.windowRounding + " px"
             code: Theme.ic.window; accent: Theme.accent
             from: 0; value: Theme.windowRounding / 30 * 100
-            onMoved: v => Theme.set("windowRounding", v * 30 / 100)
-            onReset: Theme.set("windowRounding", Theme.defaults.windowRounding)
+            onMoved: v => Theme.setCornerRadius(v * 30 / 100)
+            onReset: Theme.setMany({ windowRounding: Theme.defaults.windowRounding, radiusScale: Theme.defaults.radiusScale })
         }
         LabeledSlider {
             label: "Gap between windows"; valueText: Theme.gapsIn + " px"
@@ -35,7 +48,7 @@ SettingsPage {
     }
     SettingsSection {
         title: "Transparency"
-        subtitle: "Focused windows should stay more opaque than unfocused ones."
+        subtitle: "Liquid glass uses these Hyprland window opacity levels. Solid keeps every app window fully opaque."
         LabeledSlider {
             label: "Focused window opacity"; valueText: Math.round(Theme.activeOpacity * 100) + "%"
             code: Theme.ic.eye; accent: Theme.purple

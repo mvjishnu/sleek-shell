@@ -44,6 +44,5 @@ ColumnLayout {
             onClicked: Pipewire.preferredDefaultAudioSink = modelData
         }
     }
-    MediaCard {}
     ActionRow { code: Theme.ic.cog; accent: Theme.muted; title: "Sound settings"; subtitle: "pavucontrol"; onClicked: { Sys.close(); Sys.run(["pavucontrol"]) } }
 }

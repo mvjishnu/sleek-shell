@@ -11,6 +11,18 @@ SettingsPage {
     SettingsSection {
         title: "Layout"
         SettingRow {
+            title: "Bar surfaces"
+            subtitle: Settings.barStyle === "pills"
+                ? "Original separate pills; finish, frost, borders, radius and spacing follow Appearance settings"
+                : "One shared surface across the bar"
+            Segment {
+                width: 240
+                model: [{ id: "full", label: "Full-width" }, { id: "pills", label: "Original pills" }]
+                current: Settings.barStyle
+                onPicked: optionId => Settings.set("barStyle", optionId)
+            }
+        }
+        SettingRow {
             title: "Density"
             subtitle: "Pill height of the bar"
             Segment {

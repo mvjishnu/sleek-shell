@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import Quickshell
 import Quickshell.Wayland
 import qs.services
@@ -43,7 +44,20 @@ Scope {
         color: "transparent"
         anchors { top: true; bottom: true; left: true; right: true }
         exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.namespace: "quickshell"
+        WlrLayershell.namespace: "quickshell-settings-dim"
+        // Keep the scrim below the interactive Settings surface, which is on Overlay.
+        WlrLayershell.layer: WlrLayer.Top
+
+        Rectangle { anchors.fill: parent; color: Theme.scrim; opacity: sw.t }
+    }
+
+    PanelWindow {
+        visible: sw.shown
+        screen: Ui.settingsScreen
+        color: "transparent"
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.namespace: "quickshell-settings"
         WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: Ui.settingsOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
@@ -62,63 +76,107 @@ Scope {
                 }
             }
 
-            Rectangle { anchors.fill: parent; color: Theme.scrim; opacity: sw.t }
             MouseArea { anchors.fill: parent; onClicked: Ui.closeSettings() }
 
             Item {
                 id: frame
                 anchors.centerIn: parent
-                width: Math.min(parent.width - 48, 1080)
-                height: Math.min(parent.height - 48, 720)
+                width: Math.min(parent.width - 40, 1180)
+                height: Math.min(parent.height - 40, 780)
                 opacity: sw.t
                 scale: 0.96 + 0.04 * sw.t
 
                 Rectangle {
                     visible: Theme.shadows
                     anchors { fill: parent; topMargin: 8; leftMargin: 2; rightMargin: -2; bottomMargin: -8 }
-                    radius: Theme.radius + 4
+                    radius: Theme.windowRounding
                     color: Theme.shadowColor
+                }
+                // Window border: follows Settings > Appearance > Window and app borders
+                // (thickness, common colour, the accent-to-palette gradient and the off state).
+                // Drawn as a ring, not a filled rectangle, so the glass surface never picks
+                // up the border tint.
+                Shape {
+                    id: windowBorder
+                    anchors.fill: parent
+                    visible: Theme.borderWidth > 0
+                    preferredRendererType: Shape.CurveRenderer
+                    readonly property real bw: Math.min(Theme.borderWidth, Math.min(width, height) / 2)
+                    readonly property real outerRadius: Math.min(Theme.windowRounding, Math.min(width, height) / 2)
+                    readonly property real innerRadius: Math.max(0, outerRadius - bw)
+                    readonly property bool useGradient: Theme.colorfulBorders && Theme.windowBorderColor === ""
+                    readonly property color solidColor: Theme.windowBorderColor !== ""
+                        ? Theme.windowBorderColor
+                        : Qt.alpha(Theme.commonBorderHex, 0.80)
+                    ShapePath {
+                        fillRule: ShapePath.OddEvenFill
+                        strokeWidth: 0
+                        fillGradient: LinearGradient {
+                            id: borderGradient
+                            x1: 0; y1: windowBorder.height
+                            x2: windowBorder.width; y2: 0
+                            GradientStop { position: 0; color: windowBorder.useGradient ? Qt.alpha(Theme.commonBorderHex, 0.93) : windowBorder.solidColor }
+                            GradientStop { position: 1; color: windowBorder.useGradient ? Qt.alpha(Theme.rgb(Theme.palette.accent), 0.67) : windowBorder.solidColor }
+                        }
+                        // outer edge
+                        startX: windowBorder.outerRadius; startY: 0
+                        PathLine { x: windowBorder.width - windowBorder.outerRadius; y: 0 }
+                        PathArc { x: windowBorder.width; y: windowBorder.outerRadius; radiusX: windowBorder.outerRadius; radiusY: windowBorder.outerRadius }
+                        PathLine { x: windowBorder.width; y: windowBorder.height - windowBorder.outerRadius }
+                        PathArc { x: windowBorder.width - windowBorder.outerRadius; y: windowBorder.height; radiusX: windowBorder.outerRadius; radiusY: windowBorder.outerRadius }
+                        PathLine { x: windowBorder.outerRadius; y: windowBorder.height }
+                        PathArc { x: 0; y: windowBorder.height - windowBorder.outerRadius; radiusX: windowBorder.outerRadius; radiusY: windowBorder.outerRadius }
+                        PathLine { x: 0; y: windowBorder.outerRadius }
+                        PathArc { x: windowBorder.outerRadius; y: 0; radiusX: windowBorder.outerRadius; radiusY: windowBorder.outerRadius }
+                        // inner edge (hole)
+                        PathMove { x: windowBorder.bw + windowBorder.innerRadius; y: windowBorder.bw }
+                        PathLine { x: windowBorder.width - windowBorder.bw - windowBorder.innerRadius; y: windowBorder.bw }
+                        PathArc { x: windowBorder.width - windowBorder.bw; y: windowBorder.bw + windowBorder.innerRadius; radiusX: windowBorder.innerRadius; radiusY: windowBorder.innerRadius }
+                        PathLine { x: windowBorder.width - windowBorder.bw; y: windowBorder.height - windowBorder.bw - windowBorder.innerRadius }
+                        PathArc { x: windowBorder.width - windowBorder.bw - windowBorder.innerRadius; y: windowBorder.height - windowBorder.bw; radiusX: windowBorder.innerRadius; radiusY: windowBorder.innerRadius }
+                        PathLine { x: windowBorder.bw + windowBorder.innerRadius; y: windowBorder.height - windowBorder.bw }
+                        PathArc { x: windowBorder.bw; y: windowBorder.height - windowBorder.bw - windowBorder.innerRadius; radiusX: windowBorder.innerRadius; radiusY: windowBorder.innerRadius }
+                        PathLine { x: windowBorder.bw; y: windowBorder.bw + windowBorder.innerRadius }
+                        PathArc { x: windowBorder.bw + windowBorder.innerRadius; y: windowBorder.bw; radiusX: windowBorder.innerRadius; radiusY: windowBorder.innerRadius }
+                    }
+                    MouseArea { anchors.fill: parent }
                 }
                 Rectangle {
                     id: card
                     anchors.fill: parent
-                    radius: Theme.radius + 4
+                    anchors.margins: Theme.borderWidth
+                    radius: Math.max(0, Theme.windowRounding - Theme.borderWidth)
                     antialiasing: true
                     clip: true
-                    border.width: Theme.strokeWidth
-                    border.color: Theme.stroke
-                    gradient: Gradient {
-                        GradientStop { position: 0; color: Theme.glassPopTop }
-                        GradientStop { position: 1; color: Theme.glassPopBottom }
-                    }
+                    color: Theme.glassPopTop
                     MouseArea { anchors.fill: parent }
 
                     // ---------------- sidebar
                     Rectangle {
                         id: side
-                        width: 230
+                        width: 252
                         anchors { top: parent.top; bottom: parent.bottom; left: parent.left }
-                        color: Qt.alpha(Theme.ink, Theme.light ? 0.03 : 0.04)
+                        radius: 0
+                        topLeftRadius: card.radius
+                        bottomLeftRadius: card.radius
+                        color: Theme.surfaceHi
                         ColumnLayout {
                             anchors { fill: parent; margins: 14 }
                             spacing: 4
                             RowLayout {
                                 Layout.fillWidth: true
-                                Layout.bottomMargin: 12
+                            Layout.bottomMargin: 18
                                 Layout.leftMargin: 6
                                 spacing: 10
                                 Rectangle {
-                                    implicitWidth: 34; implicitHeight: 34; radius: Theme.pill(34)
-                                    gradient: Gradient {
-                                        GradientStop { position: 0; color: Theme.cyan }
-                                        GradientStop { position: 1; color: Theme.accent }
-                                    }
-                                    Glyph { anchors.centerIn: parent; code: Theme.ic.drop; color: "#ffffff"; size: 18 }
+                                    implicitWidth: 40; implicitHeight: 40; radius: 14
+                                    color: Theme.accent
+                                    Glyph { anchors.centerIn: parent; code: Theme.ic.drop; color: Theme.onAccent; size: 20 }
                                 }
                                 ColumnLayout {
                                     spacing: 0
-                                    Text { text: "Sleek Shell"; color: Theme.text; font.family: Theme.font; font.pixelSize: 16; font.weight: Font.Bold }
-                                    Text { text: "Settings"; color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm }
+                                    Text { text: "Desktop settings"; color: Theme.text; font.family: Theme.font; font.pixelSize: 15; font.weight: Font.Bold }
+                                    Text { text: "Sleek Shell"; color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm }
                                 }
                             }
                             Repeater {
@@ -128,9 +186,9 @@ Scope {
                                     required property var modelData
                                     readonly property bool current: Ui.settingsPage === modelData.id
                                     Layout.fillWidth: true
-                                    implicitHeight: 38
-                                    radius: Theme.controlRadius
-                                    color: current ? Qt.alpha(Theme.accent, 0.22) : (nma.containsMouse || activeFocus ? Theme.surface : "transparent")
+                                    implicitHeight: 46
+                                    radius: 16
+                                    color: current ? Theme.accent : (nma.containsMouse || activeFocus ? Theme.surface : "transparent")
                                     Behavior on color { enabled: Theme.animations; ColorAnimation { duration: Theme.durFast } }
                                     activeFocusOnTab: true
                                     Accessible.role: Accessible.PageTab
@@ -139,14 +197,15 @@ Scope {
                                     Rectangle {
                                         width: 3; height: nav.current ? 18 : 0; radius: 2
                                         anchors { left: parent.left; leftMargin: 2; verticalCenter: parent.verticalCenter }
+                                        visible: false
                                         color: Theme.accent
                                         Behavior on height { enabled: Theme.animations; NumberAnimation { duration: Theme.durBase; easing.type: Easing.OutBack } }
                                     }
                                     RowLayout {
                                         anchors { fill: parent; leftMargin: 12; rightMargin: 10 }
                                         spacing: 10
-                                        Glyph { code: nav.modelData.code; color: nav.current ? Theme.accent : nav.modelData.col; size: 16 }
-                                        Text { text: nav.modelData.label; color: nav.current ? Theme.text : Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontLg
+                                        Glyph { code: nav.modelData.code; color: nav.current ? Theme.onAccent : Theme.muted; size: 19 }
+                                        Text { text: nav.modelData.label; color: nav.current ? Theme.onAccent : Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontLg
                                                font.weight: nav.current ? Font.DemiBold : Font.Normal; Layout.fillWidth: true; elide: Text.ElideRight }
                                     }
                                     MouseArea { id: nma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Ui.settingsPage = nav.modelData.id }

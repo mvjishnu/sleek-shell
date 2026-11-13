@@ -13,8 +13,8 @@ import Quickshell.Networking
 // Sleek Shell: state is event driven through Quickshell's native services (PipeWire, UPower,
 // power-profiles-daemon, BlueZ, NetworkManager, MPRIS) instead of polling scripts/status.sh,
 // which took ~8 s per run and was re-run every 2.5–8 s. Nothing here spawns a process while idle.
-// Wi-Fi listing/connecting (wifi-*.sh) and Bluetooth pairing (bt.py, which brings its own agent)
-// keep their proven helpers and only run on demand.
+// Wi-Fi and Bluetooth state are event driven through Quickshell's native D-Bus
+// services. The pairing helper is started only when an unpaired device is chosen.
 Singleton {
     id: sys
 
@@ -29,12 +29,15 @@ Singleton {
 
     function toggle(name, screenName) {
         if (openPopup === name && openScreen === screenName) { close(); return }
+        // Stop the previous radio scan before a different panel opens. Wi-Fi
+        // and Bluetooth both scan only while their own panel is visible.
+        if (openPopup !== "") close()
         openPopup = name
         openScreen = screenName
         if (name === "wifi") { if (!wifiBusy) setWifiMsg("", false); wifiPending = ""; scanWifi() }
         else if (name === "bluetooth") { btMsg = ""; btInfo = ""; probeBtManager(); if (btOn) setDiscovering(true) }
         else if (name === "clipboard") loadClipboard()
-        else if (name === "battery") readBrightness()
+        else if (name === "battery" || name === "brightness") readBrightness()
     }
     function close() {
         if (openPopup === "wifi") { stopWifiScan(); wifiPending = "" }
@@ -121,6 +124,8 @@ Singleton {
     property string backlightDevice: ""          // e.g. "amdgpu_bl2"; empty = first device
     property bool hasBacklight: false
     property int brightness: 50
+    property real brightnessIconRotation: 0
+    onBrightnessChanged: brightnessIconRotation += 360
     property int maxBrightness: 1
     Process {
         id: blProbe
@@ -133,7 +138,7 @@ Singleton {
     FileView { id: blCur; path: sys.backlightDevice ? "/sys/class/backlight/" + sys.backlightDevice + "/brightness" : ""; printErrors: false
         onLoaded: if (!brTimer.running) sys.brightness = Math.max(1, Math.min(100, Math.round((parseInt(text()) || 0) * 100 / sys.maxBrightness))) }
     function readBrightness() { if (hasBacklight) { blMax.reload(); blCur.reload() } }
-    Timer { interval: 1500; repeat: true; running: sys.openPopup === "battery"; onTriggered: sys.readBrightness() }
+    Timer { interval: 1500; repeat: true; running: sys.openPopup === "brightness"; onTriggered: sys.readBrightness() }
     function setBrightness(v) {
         brightness = Math.max(1, Math.round(v))
         brTimer.restart()
@@ -271,7 +276,9 @@ Singleton {
     function scanWifi() {
         if (!wifiDev || !wifiOn) return
         wifiDev.scannerEnabled = true
-        if (wifiList.length === 0) { wifiScanning = true; wifiScanDone.restart() }
+        wifiScanning = true
+        wifiScanDone.interval = 4000
+        wifiScanDone.restart()
     }
     function rescanWifi() {
         if (!wifiDev || !wifiOn) return
@@ -287,8 +294,9 @@ Singleton {
     function toggleWifi() {
         setWifiMsg("", false)
         wifiPending = ""
-        Networking.wifiEnabled = !wifiOn
-        if (!wifiOn) later(function () { sys.scanWifi() }, 1200)
+        var turningOn = !wifiOn
+        Networking.wifiEnabled = turningOn
+        if (turningOn) later(function () { sys.scanWifi() }, 900)
     }
 
     // Click on a network: connected -> nothing, saved/open -> connect now, new secured -> ask.
@@ -304,7 +312,8 @@ Singleton {
     function submitWifiPassword(psk) {
         var e = wifiNet(wifiPending)
         if (!e) { setWifiMsg("“" + wifiPending + "” is out of range", false); wifiPending = ""; return }
-        if (psk.length < 8 || psk.length > 63) { setWifiMsg("Wi-Fi passwords are 8–63 characters", false); return }
+        var validPsk = (psk.length >= 8 && psk.length <= 63) || (psk.length === 64 && /^[0-9a-fA-F]{64}$/.test(psk))
+        if (!validPsk) { setWifiMsg("Use 8–63 characters, or a 64-digit hexadecimal key", false); return }
         wifiPending = ""
         beginWifi(e, psk)
     }

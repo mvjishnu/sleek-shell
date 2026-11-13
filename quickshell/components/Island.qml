@@ -10,12 +10,13 @@ Item {
     property alias spacing: row.spacing
     property bool hovered: false
     property bool active: false
+    property bool backgroundEnabled: true
     property color tone: Theme.accent
     height: Theme.islandHeight
     width: row.implicitWidth + inset * 2
     Behavior on width { enabled: Theme.animations; NumberAnimation { duration: Theme.durBase; easing.type: Easing.OutCubic } }
 
-    PillSurface { anchors.fill: parent; hovered: isl.hovered; active: isl.active; tone: isl.tone }
+    PillSurface { anchors.fill: parent; visible: isl.backgroundEnabled; hovered: isl.hovered; active: isl.active; tone: isl.tone }
 
     Row {
         id: row

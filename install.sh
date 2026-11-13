@@ -12,7 +12,7 @@
 # Elsewhere it installs into your home only and lists the packages you need (docs/DISTROS.md).
 #
 # Choices (asked when you do not pass them; --yes and --dry-run take the default):
-#   --browser firefox|chromium|vivaldi|brave|zen|chrome|epiphany|none     default: firefox
+#   --browser firefox|chromium|vivaldi|brave|zen|chrome|epiphany|none     default: Zen Browser
 #   --greeter auto|sleek|keep     login screen: auto installs it when there is none and asks before
 #                                 replacing another display manager (default: keep the other one)
 #   --idle short|balanced|long|never      lock / screen off / suspend timeouts (default: balanced)
@@ -22,6 +22,7 @@
 #   --profile full|shell          shell = the Quickshell shell only, your Hyprland config is kept
 #   --replace-hypr                replace an existing ~/.config/hypr (it is backed up first)
 #   --keep-shell                  do not make zsh your login shell
+#   --autologin yes|no            auto-login on TTY1 and lock before showing the desktop (default: no)
 #   --user-only                   no sudo: install into your home only (also --skip-system)
 #   --ignore-deps                 with --user-only: install even when required programs are missing
 #   --install-deps, --with-optional    other distributions: install the missing packages after asking
@@ -55,6 +56,7 @@ INSTALL_DEPS=0
 WITH_OPTIONAL=0
 USER_ONLY=0
 KEEP_SHELL=0
+AUTOLOGIN=no
 BROWSER="" BROWSER_EXPLICIT=0
 GREETER_CHOICE=auto
 NVIDIA_MODE=auto
@@ -76,6 +78,7 @@ while [ $# -gt 0 ]; do
         --nvidia) need_val "$@"; NVIDIA_MODE="$2"; shift ;;
         --replace-hypr) REPLACE_HYPR=1 ;;
         --keep-shell) KEEP_SHELL=1 ;;
+        --autologin) need_val "$@"; AUTOLOGIN="$2"; shift ;;
         --user-only|--skip-system) USER_ONLY=1 ;;
         --dry-run|-n) DRY=1 ;;
         --check) CHECK_ONLY=1 ;;
@@ -91,6 +94,7 @@ done
 case "$PROFILE" in full|shell) ;; *) die "unknown profile '$PROFILE' (full or shell)" ;; esac
 case "$GREETER_CHOICE" in auto|sleek|keep) ;; *) die "unknown --greeter '$GREETER_CHOICE' (auto, sleek or keep)" ;; esac
 case "$NVIDIA_MODE" in auto|open|580xx|nouveau) ;; *) die "unknown --nvidia '$NVIDIA_MODE' (open, 580xx or nouveau)" ;; esac
+case "$AUTOLOGIN" in yes|no) ;; *) die "--autologin must be yes or no" ;; esac
 case "$IDLE_PRESET" in ""|short|balanced|long|never|custom) ;; *) die "unknown --idle '$IDLE_PRESET' (short, balanced, long or never)" ;; esac
 if [ -n "$BROWSER" ] && [ "$BROWSER" != none ] && [ -z "$(browser_field "$BROWSER" 1)" ]; then
     die "unknown --browser '$BROWSER' ($(browser_ids | tr '\n' ' ')none)"
@@ -209,7 +213,7 @@ if [ "$SYSTEM" = 1 ]; then
     gpu_plan "$NVIDIA_MODE"
 
     if [ -z "$BROWSER" ]; then
-        def=firefox cur="$(default_browser || true)"
+        def=zen cur="$(default_browser || true)"
         mapfile -t have < <(browsers_installed)
         if [ -n "$cur" ]; then
             def=none
@@ -319,6 +323,7 @@ if [ "$SYSTEM" = 1 ]; then
     say "  graphics      $GPU_KIND$( [ -n "$GPU_NVIDIA_DRIVER" ] && echo ", NVIDIA driver: $GPU_NVIDIA_DRIVER")"
     for n in "${GPU_NOTES[@]}"; do say "                $n"; done
     say "  services      PipeWire (user), NetworkManager, Bluetooth$(pkg_installed power-profiles-daemon || [[ " ${PKG_REPO[*]} " == *" power-profiles-daemon "* ]] && echo ', power-profiles-daemon')"
+    say "  boot          Plymouth $(_plymouth_theme || echo 'kept'), GRUB theme $(_grub_theme || echo 'kept'), splash + quiet"
     case "$GREETER_ACTION" in
         install) say "  login screen  Sleek Shell greeter (greetd), enabled for the next boot" ;;
         refresh) say "  login screen  Sleek Shell greeter: refreshed" ;;
@@ -327,6 +332,7 @@ if [ "$SYSTEM" = 1 ]; then
     esac
     say "  browser       $( [ "$BROWSER" = none ] && echo 'none (kept as it is)' || browser_field "$BROWSER" 2)"
     say "  login shell   $( [ "$KEEP_SHELL" = 1 ] && echo 'kept (--keep-shell)' || echo 'zsh (only if it is bash now)')"
+    [ "$AUTOLOGIN" = yes ] && say "  auto-login    TTY1; Quickshell locks before the desktop is usable"
     for n in "${ARCH_NOTES[@]}"; do say "  note          $n"; done
     say "  ${C_B}Your home${C_0}"
 fi
@@ -340,6 +346,8 @@ case "$HYPR_ACTION" in
 esac
 say "  ~/.zshrc                    $( if [ ! -e "$HOME/.zshrc" ]; then echo install; elif [ "$ZSHRC_TRIVIAL" = 1 ]; then echo 'replace the empty one zsh created (backed up)'; elif owned "$HOME/.zshrc"; then echo upgrade; else echo 'keep yours'; fi)"
 say "  rofi / kitty defaults       only where you have no config yet"
+say "  zsh                         profile, Powerlevel10k config and theme (only where you have none)"
+say "  wallpapers                  the full free/open-source collection (~/Pictures/Wallpapers; yours are kept)"
 say "  idle                        $( [ "$IDLE_WRITE" = 0 ] && echo 'keep your current timeouts' || echo "lock $(minutes "$P_LOCK"), screen off $(minutes "$P_OFF"), suspend $(minutes "$P_SUSPEND")$(bat_text)")"
 say "  calculator, icon font, wallpaper, docs, greeter files, uninstaller"
 say "  backups                     ${BACKUP_DIR/#$HOME/\~}/ (only if something is replaced)"
@@ -412,6 +420,9 @@ fi
 head1 "Shell and defaults"
 [ "$ZSHRC_TRIVIAL" = 1 ] && backup_away "$HOME/.zshrc"
 place "$HERE/defaults/zsh/zshrc" "$HOME/.zshrc" 644 ifabsent
+place "$HERE/defaults/zsh/zprofile" "$HOME/.zprofile" 644 ifabsent
+place "$HERE/defaults/zsh/p10k.zsh" "$HOME/.p10k.zsh" 644 ifabsent
+arch_zsh_theme
 # Files Sleek Shell rewrites at runtime (theme colours, fonts): adopted when they carry its header
 GEN["$CFG/kitty/theme.conf"]=1 GEN["$CFG/kitty/font.conf"]=1 GEN["$CFG/rofi/themes/rice.rasi"]=1 GEN["$CFG/sleek-shell/app-themes.json"]=1
 THEMED=()
@@ -463,9 +474,24 @@ place "$HERE/assets/fonts/MaterialSymbolsRounded.ttf" "$DATA_HOME/fonts/sleek-sh
 place "$HERE/assets/fonts/LICENSE-MaterialSymbols.txt" "$DATA_HOME/fonts/sleek-shell/LICENSE-MaterialSymbols.txt" 644 managed
 if command -v fc-cache >/dev/null 2>&1; then act "refresh the font cache" fc-cache -f "$DATA_HOME/fonts/sleek-shell"; fi
 
-head1 "Wallpaper"
-place "$HERE/assets/wallpapers/astronaut-planet.png" "$HOME/Pictures/Wallpapers/sleek-shell-astronaut.png" 644 ifabsent
-ok "default wallpaper in ~/Pictures/Wallpapers"
+head1 "Wallpapers"
+WALL_DIR="$HOME/Pictures/Wallpapers"
+_wallpapers() { find "$HERE/assets/wallpapers" -maxdepth 1 -type f \
+    \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.gif' -o -iname '*.bmp' \) -print0 | sort -z; }
+if [ "$DRY" = 1 ]; then
+    n=0; while IFS= read -r -d '' _f; do n=$((n + 1)); done < <(_wallpapers)
+    say "  ${C_Y}would copy${C_0} $n wallpapers to ${WALL_DIR/#$HOME/\~} (existing files are kept)"
+else
+    mkdirs "$WALL_DIR"
+    n=0 total=0
+    while IFS= read -r -d '' _f; do
+        total=$((total + 1))
+        _dest="$WALL_DIR/${_f##*/}"
+        [ -e "$_dest" ] && continue
+        cp -p -- "$_f" "$_dest" && n=$((n + 1))
+    done < <(_wallpapers)
+    ok "$n wallpaper(s) added to ${WALL_DIR/#$HOME/\~} ($total in the collection; yours are never overwritten)"
+fi
 
 head1 "Docs, greeter, uninstaller"
 for f in README.md LICENSE CHANGELOG.md VERSION; do [ -f "$HERE/$f" ] && place "$HERE/$f" "$DATA/$f" 644 managed; done
@@ -486,7 +512,10 @@ if [ "$SYSTEM" = 1 ]; then
     arch_greeter
     head1 "Services"
     arch_services
+    head1 "Boot animation"
+    arch_boot_apply
     if [ "$KEEP_SHELL" = 0 ]; then arch_login_shell; else ok "login shell: $(login_shell) (--keep-shell)"; fi
+    if [ "$AUTOLOGIN" = yes ]; then arch_autologin_enable; fi
     if [ "$DRY" = 0 ] && command -v xdg-user-dirs-update >/dev/null 2>&1 && [ ! -f "$CFG/user-dirs.dirs" ]; then
         xdg-user-dirs-update && ok "home folders (Documents, Downloads, Pictures, ...)" || true
     fi
@@ -494,6 +523,12 @@ fi
 
 head1 "Preferences"
 if [ "$IDLE_WRITE" = 1 ]; then read -r B_LOCK B_OFF B_SUSPEND <<< "${P_BAT:-}"; apply_idle "$P_LOCK" "$P_OFF" "$P_SUSPEND" "$P_BSEP" "${B_LOCK:-}" "${B_OFF:-}" "${B_SUSPEND:-}"; else ok "idle: your current timeouts are kept"; fi
+# Thunar is the reference file manager. Only claim the folder handler when none is configured.
+if [ "$DRY" = 0 ] && command -v xdg-mime >/dev/null 2>&1 && command -v thunar >/dev/null 2>&1; then
+    if [ -z "$(xdg-mime query default inode/directory 2>/dev/null)" ]; then
+        xdg-mime default thunar.desktop inode/directory 2>/dev/null && ok "default file manager: Thunar"
+    fi
+fi
 if [ "$SYSTEM" = 1 ] || { [ "$BROWSER_EXPLICIT" = 1 ] && [ -n "$BROWSER" ]; }; then apply_browser "$BROWSER" "$BROWSER_EXPLICIT"; fi
 case ":$PATH:" in *":$BIN:"*) ;; *) say "  ~/.local/bin is added to PATH by Hyprland and the zsh config from the next login" ;; esac
 
@@ -515,6 +550,7 @@ if [ "$DRY" = 0 ]; then
         printf 'profile:  %s\nsystem:   %s\n' "$PROFILE" "$( [ "$SYSTEM" = 1 ] && echo yes || echo "no ($SYSTEM_WHY)")"
         [ "$SYSTEM" = 0 ] || printf 'browser:  %s\nlogin:    %s\n' "$BROWSER" "$GREETER_ACTION${GREETER_OLD:+ (was $GREETER_OLD)}"
         printf 'idle:     lock %s, screen off %s, suspend %s\n' "$(minutes "$(idle_current idleLockMin 10)")" "$(minutes "$(idle_current idleScreenOffMin 15)")" "$(minutes "$(idle_current idleSuspendMin 0)")"
+        [ -z "$BOOT_THEME" ] || printf 'boot:     Plymouth %s, GRUB %s\n' "$BOOT_THEME" "$(_grub_theme || echo kept)"
         if [ "$(idle_current idleBatterySeparate 0)" = 1 ]; then
             printf 'battery:  lock %s, screen off %s, suspend %s\n' "$(minutes "$(idle_current idleBatteryLockMin 5)")" "$(minutes "$(idle_current idleBatteryScreenOffMin 10)")" "$(minutes "$(idle_current idleBatterySuspendMin 15)")"
         fi

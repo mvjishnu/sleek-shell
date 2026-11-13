@@ -12,6 +12,8 @@ Rectangle {
     property string trailing: ""
     property bool highlighted: false
     property bool enabled: true
+    property var dragData: ({})
+    property bool dragConsumed: false
     signal clicked()
     opacity: enabled ? 1 : 0.5
     activeFocusOnTab: enabled
@@ -19,9 +21,20 @@ Rectangle {
     Accessible.name: title
     Keys.onPressed: e => { if (r.enabled && (e.key === Qt.Key_Return || e.key === Qt.Key_Space)) { r.clicked(); e.accepted = true } }
 
+    DragHandler {
+        id: rowDrag
+        target: null
+        enabled: Object.keys(r.dragData).length > 0
+        onActiveChanged: if (active) r.dragConsumed = true
+    }
+    Drag.active: rowDrag.active
+    Drag.supportedActions: Qt.CopyAction
+    Drag.mimeData: r.dragData
+    Timer { interval: 120; running: r.dragConsumed; onTriggered: r.dragConsumed = false }
+
     Layout.fillWidth: true
     implicitHeight: subtitle !== "" ? 50 : 42
-    radius: Theme.controlRadius
+    radius: Math.max(16, Theme.controlRadius + 4)
     antialiasing: true
     color: highlighted ? Qt.alpha(accent, 0.16) : (ma.containsMouse || activeFocus ? Theme.surface : "transparent")
     Behavior on color { enabled: Theme.animations; ColorAnimation { duration: Theme.durFast } }
@@ -57,6 +70,6 @@ Rectangle {
         enabled: r.enabled
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: r.clicked()
+        onClicked: { if (!r.dragConsumed) r.clicked(); r.dragConsumed = false }
     }
 }

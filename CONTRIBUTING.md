@@ -29,10 +29,10 @@ The test suites:
 | Suite | What it checks |
 |---|---|
 | `static` | `bash -n` and shellcheck (if installed); `luac`, `qmlformat`, Python and JSON parse; executable bits; `Hyprland --verify-config` on the desktop and greeter configs; `--help` output |
-| `hygiene` | no personal paths, names, secrets, symlinks or large files |
-| `lua` | Hyprland Lua modules (workspaces, monitors, environment) against a mock `hl` API, plus a paren-call lint |
+| `hygiene` | no personal paths, names, secrets, symlinks or oversized files (bundled wallpapers excepted), wallpaper license/metadata checks |
+| `lua` | Hyprland Lua modules (workspaces, monitors, env/cursor) against a mock `hl` API, plus a paren-call lint |
 | `qml` | QML JavaScript logic (idle timeouts, battery set, dimming) with `qmltestrunner`, offscreen |
-| `units` | Python unit tests (`hypr-tools.py` shortcut editor) |
+| `units` | Python unit tests (calculator, `hypr-tools.py` shortcut editor) |
 | `gpu` | GPU detection and driver plans for every NVIDIA generation, hybrids and kernels, from sysfs fixtures |
 | `deps` | dependency table, package hints and `--install-deps` with stubbed package managers |
 | `distro` | os-release fixtures for 16 distributions plus a malicious one, init system and display manager detection, package hints |
@@ -55,4 +55,5 @@ The test suites:
 - If a change affects files the installer copies, also update `tests/installer.sh`.
 - Add a line to `CHANGELOG.md` under an `Unreleased` heading.
 
-By contributing, you agree that your contribution is licensed under the MIT License.
+By contributing, you agree that your contribution is licensed under the GNU General Public License v3.0,
+the same license as the project ([LICENSE](LICENSE)).

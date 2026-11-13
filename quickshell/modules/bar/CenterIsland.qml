@@ -9,12 +9,20 @@ import qs.components
 Island {
     id: isl
     required property var bar
+    // The original bar style gives the clock/media island its own pill too.
+    // In full-width mode, keep the shared surface reserved for the transient OSD.
+    backgroundEnabled: Settings.barStyle === "pills" || osdOn
     property string osdKind: ""
     property real osdValue: 0
     property bool osdMuted: false
+    property bool debugClockVisible: !osdOn
+    property string debugClockText: Time.fmtTime(Time.date)
     readonly property bool osdOn: osdKind !== ""
     readonly property bool mediaOn: Settings.islandMedia && Sys.mediaPlaying && !osdOn
-    opacity: Sys.lockHideClock ? 0 : 1
+    // The session lock has its own full-screen surface. Keep the bar clock visible
+    // underneath it so a stale lock-hidden flag cannot make the clock disappear
+    // from the desktop after the lock surface has gone away.
+    opacity: 1
     onWidthChanged: if (!osdOn && !mediaOn) Sys.clockW = width
     Component.onCompleted: Sys.clockW = width
 
@@ -37,7 +45,7 @@ Island {
         label: Time.fmtTime(Time.date)
         label2: Settings.clockDate ? Time.fmtDate(Time.date) : ""
         active: isl.bar.isOpen("calendar")
-        iconColor: Theme.accent
+        iconColor: Theme.text
         tooltip: "Calendar"
         onClicked: Sys.toggle("calendar", isl.bar.sn)
     }
@@ -47,8 +55,13 @@ Island {
         visible: isl.mediaOn
         height: Theme.islandHeight
         width: visible ? 6 + Theme.barIconBox + 4 + mtitle.width + 12 : 0
-        Rectangle { width: 1; height: parent.height * 0.46; anchors.verticalCenter: parent.verticalCenter; color: Theme.pillStroke }
-        Glyph { x: 6; width: Theme.barIconBox; height: parent.height; name: "music"; color: Theme.barTone(Theme.green); size: Theme.barIcon - 2 }
+        Rectangle {
+            x: 2; width: 2; height: parent.height * 0.42
+            anchors.verticalCenter: parent.verticalCenter
+            radius: 1
+            color: Theme.barTone(Theme.accent)
+        }
+        Glyph { x: 6; width: Theme.barIconBox; height: parent.height; name: "music"; color: Theme.barTone(Theme.accent); size: Theme.barIcon }
         BarLabel {
             id: mtitle
             x: 6 + Theme.barIconBox + 4
@@ -56,7 +69,7 @@ Island {
             width: Math.min(implicitWidth, 200)
             clip: true
             weight: Font.Medium
-            color: Theme.muted
+            color: Theme.text
             text: Sys.player ? (Sys.player.trackTitle || Sys.player.identity || "") : ""
         }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -72,9 +85,9 @@ Island {
             anchors { fill: parent; leftMargin: 8; rightMargin: 12 }
             spacing: 8
             Glyph {
-                size: Theme.barIcon - 1; Layout.preferredWidth: Theme.barIconBox; Layout.fillHeight: true
+                size: Theme.barIcon; Layout.preferredWidth: Theme.barIconBox; Layout.fillHeight: true
                 name: isl.osdKind === "brightness" ? "brightness" : Theme.volumeSym(isl.osdValue, isl.osdMuted)
-                color: isl.osdKind === "brightness" ? Theme.yellow : (isl.osdMuted ? Theme.muted : Theme.pink)
+                color: isl.osdMuted ? Theme.red : Theme.barTone(isl.osdKind === "brightness" ? Theme.yellow : Theme.cyan)
             }
             Rectangle {
                 Layout.fillWidth: true

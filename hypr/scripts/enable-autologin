@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Configure TTY1 auto-login for the current user. The session starts Hyprland from
+# ~/.zprofile, and hypr/scripts/start-shell asks Quickshell for a PAM-authenticated
+# lock before the desktop becomes usable. Takes effect on the next boot.
+set -euo pipefail
+
+user="$(id -un)"
+unit="/etc/systemd/system/getty@tty1.service.d/sleek-shell-autologin.conf"
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+printf '[Service]\nExecStart=\nExecStart=-/usr/bin/agetty --autologin %s --noreset %%I ${TERM}\n' "$user" >"$tmp"
+sudo install -D -m 0644 "$tmp" "$unit"
+sudo systemctl daemon-reload
+printf '%s\n' \
+  "TTY1 auto-login configured for $user." \
+  "It takes effect on the next reboot. Hyprland starts from ~/.zprofile and the session locks on startup." \
+  "Undo: sudo rm -f $unit && sudo systemctl daemon-reload"

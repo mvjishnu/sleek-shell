@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -u
+
+# The login startup flag must reach only the first shell process. Keeping it in
+# the shell environment makes a reload recreate PixelLock's startup timer.
+initial_lock_requested="${PIXEL_LOCK_ON_START:-}"
+unset PIXEL_LOCK_ON_START
+
+wait_for_notification_owner() {
+  expected="$1"
+  for _ in {1..40}; do
+    owner_pid="$(busctl --user --no-pager status org.freedesktop.Notifications 2>/dev/null | sed -n 's/^PID=//p' | head -n 1)"
+    owner_comm=""
+    if [[ "$owner_pid" =~ ^[0-9]+$ ]]; then
+      owner_comm="$(ps -p "$owner_pid" -o comm= 2>/dev/null | tr -d '[:space:]')"
+    fi
+    if [[ "$owner_comm" == "$expected" ]]; then return 0; fi
+    sleep 0.25
+  done
+  return 1
+}
+
+switch_startup_wallpaper() {
+  "${XDG_CONFIG_HOME:-$HOME/.config}/hypr/scripts/wallpaper-next" restore
+}
+
+if ! command -v quickshell >/dev/null 2>&1; then
+  echo "Quickshell is required for this Hyprland session; refusing to start a competing notification daemon or bar." >&2
+  exit 1
+fi
+
+qs_pid=""
+if pgrep -x quickshell >/dev/null 2>&1; then
+  quickshell ipc call reload reload >/dev/null 2>&1 || true
+else
+  mkdir -p "$HOME/.local/state/quickshell"
+  quickshell >"$HOME/.local/state/quickshell/startup.log" 2>&1 &
+  qs_pid=$!
+fi
+
+for _ in {1..40}; do
+  if [[ "$(quickshell ipc call health ready 2>/dev/null || true)" == "ok" ]]; then
+    # Secure the session as soon as the lock provider is ready. Notification
+    # startup and wallpaper restoration can take seconds and must not expose
+    # the desktop before the boot lock appears.
+    if [[ "$initial_lock_requested" == "1" ]]; then
+      quickshell ipc call lock lock >/dev/null 2>&1 || true
+      for _ in {1..40}; do
+        [[ "$(quickshell ipc call lock isSecure 2>/dev/null || true)" == "true" ]] && break
+        sleep 0.05
+      done
+    fi
+    # Do not kill the lock provider just because D-Bus notifications are slow
+    # during an autologin boot; the boot lock has already been requested.
+    if ! wait_for_notification_owner quickshell && [[ "$initial_lock_requested" != "1" ]]; then break; fi
+    if [[ -n "$qs_pid" && "$initial_lock_requested" != "1" ]]; then
+      quickshell ipc call startupSplash show >/dev/null 2>&1 || true
+    fi
+    switch_startup_wallpaper
+    [[ -z "$qs_pid" ]] || wait "$qs_pid"
+    exit 0
+  fi
+  if [[ -n "$qs_pid" ]] && ! kill -0 "$qs_pid" 2>/dev/null; then break; fi
+  sleep 0.25
+done
+
+if [[ -n "$qs_pid" ]]; then kill "$qs_pid" 2>/dev/null || true; fi
+echo "Quickshell did not become ready; check ~/.local/state/quickshell/startup.log" >&2
+exit 1

@@ -21,49 +21,62 @@ Singleton {
     readonly property string home: Quickshell.env("HOME")
     readonly property string configDir: home + "/.config/sleek-shell"
 
-    // ---- built-in palettes: tint is the glass base, accent the highlight ----
+    // ---- built-in palettes: deep surface tint plus a vivid, solid accent ----
     readonly property var palettes: [
-        { id: "navy",     name: "Navy",     tint: [42, 38, 82],    accent: [124, 156, 255], text: "#f4f1ff", muted: "#a9a6cc" },
-        { id: "graphite", name: "Graphite", tint: [46, 46, 54],    accent: [150, 162, 184], text: "#f2f2f7", muted: "#a8a8b4" },
-        { id: "violet",   name: "Violet",   tint: [58, 40, 96],    accent: [176, 140, 255], text: "#f6f1ff", muted: "#b3a6d6" },
-        { id: "rose",     name: "Rose",     tint: [78, 34, 58],    accent: [255, 130, 180], text: "#fff1f6", muted: "#d6a6bb" },
-        { id: "forest",   name: "Forest",   tint: [26, 60, 48],    accent: [110, 220, 170], text: "#f0fff8", muted: "#9fcbb9" },
-        { id: "ocean",    name: "Ocean",    tint: [24, 56, 82],    accent: [104, 190, 255], text: "#f0f8ff", muted: "#9fc0d8" },
-        { id: "ember",    name: "Ember",    tint: [70, 40, 24],    accent: [255, 168, 96],  text: "#fff4ec", muted: "#d6b199" },
-        { id: "mocha",    name: "Mocha",    tint: [54, 46, 42],    accent: [214, 172, 136], text: "#f5efe8", muted: "#c4b3a4" },
-        { id: "nord",     name: "Nord",     tint: [40, 48, 60],    accent: [136, 192, 208], text: "#eceff4", muted: "#a3adba" },
-        { id: "tokyo",    name: "Tokyo",    tint: [32, 34, 52],    accent: [122, 162, 247], text: "#eef0ff", muted: "#a0a4c8" },
-        { id: "sakura",   name: "Sakura",   tint: [64, 40, 56],    accent: [255, 155, 200], text: "#fff2f8", muted: "#d4a8c0" },
-        { id: "matcha",   name: "Matcha",   tint: [40, 56, 38],    accent: [168, 220, 130], text: "#f3fff0", muted: "#b6cfab" }
+        { id: "navy",     name: "Navy",     tint: [22, 27, 52],    accent: [92, 130, 255],  text: "#f4f1ff", muted: "#a9a6cc" },
+        { id: "graphite", name: "Graphite", tint: [34, 38, 45],    accent: [190, 200, 215], text: "#f2f2f7", muted: "#a8a8b4" },
+        { id: "violet",   name: "Violet",   tint: [35, 20, 60],    accent: [158, 92, 255],  text: "#f6f1ff", muted: "#b3a6d6" },
+        { id: "rose",     name: "Rose",     tint: [58, 18, 36],    accent: [255, 64, 129],  text: "#fff1f6", muted: "#d6a6bb" },
+        { id: "forest",   name: "Forest",   tint: [18, 45, 34],    accent: [45, 205, 120],  text: "#f0fff8", muted: "#9fcbb9" },
+        { id: "ocean",    name: "Ocean",    tint: [12, 38, 58],    accent: [0, 170, 255],   text: "#f0f8ff", muted: "#9fc0d8" },
+        { id: "ember",    name: "Ember",    tint: [52, 25, 12],    accent: [255, 130, 30],  text: "#fff4ec", muted: "#d6b199" },
+        { id: "mocha",    name: "Mocha",    tint: [42, 31, 25],    accent: [204, 145, 94],  text: "#f5efe8", muted: "#c4b3a4" },
+        { id: "nord",     name: "Nord",     tint: [27, 43, 51],    accent: [44, 190, 210],  text: "#eceff4", muted: "#a3adba" },
+        { id: "tokyo",    name: "Tokyo",    tint: [20, 22, 46],    accent: [92, 116, 255],  text: "#eef0ff", muted: "#a0a4c8" },
+        { id: "sakura",   name: "Sakura",   tint: [54, 20, 43],    accent: [255, 72, 166],  text: "#fff2f8", muted: "#d4a8c0" },
+        { id: "matcha",   name: "Matcha",   tint: [28, 43, 21],    accent: [150, 215, 65],  text: "#f3fff0", muted: "#b6cfab" },
+        { id: "black",    name: "Black",    tint: [0, 0, 0],       accent: [245, 245, 250], text: "#f5f5fa", muted: "#a7a7b2" },
+        { id: "carbon",   name: "Carbon",   tint: [10, 12, 16],    accent: [130, 142, 162], text: "#f3f5f8", muted: "#a7adb8" },
+        { id: "crimson",  name: "Crimson",  tint: [44, 5, 17],    accent: [255, 43, 82],   text: "#fff2f4", muted: "#d7a0aa" },
+        { id: "gold",     name: "Gold",     tint: [44, 30, 4],     accent: [255, 190, 0],   text: "#fff9e8", muted: "#d0bb87" },
+        { id: "teal",     name: "Teal",     tint: [7, 43, 43],     accent: [0, 210, 180],   text: "#eafffb", muted: "#9bc8c1" },
+        { id: "ice",      name: "Ice",      tint: [10, 38, 52],    accent: [0, 207, 255],   text: "#edfbff", muted: "#9fc4d0" },
+        { id: "lime",     name: "Lime",     tint: [23, 43, 4],     accent: [170, 255, 0],  text: "#f7ffe8", muted: "#bbce98" },
+        { id: "cobalt",   name: "Cobalt",   tint: [5, 18, 58],     accent: [38, 103, 255],  text: "#f0f4ff", muted: "#9eafd8" },
+        { id: "indigo",   name: "Indigo",   tint: [17, 16, 50],    accent: [95, 80, 255],   text: "#f3f2ff", muted: "#aaa5d4" },
+        { id: "coral",    name: "Coral",    tint: [52, 20, 16],    accent: [255, 92, 65],   text: "#fff4f0", muted: "#d2aaa1" },
+        { id: "arctic",   name: "Arctic",   tint: [14, 32, 46],    accent: [226, 241, 255], text: "#f1f8ff", muted: "#a8bbcf" },
+        { id: "neon",     name: "Neon",     tint: [30, 8, 36],     accent: [231, 70, 255],  text: "#fff0ff", muted: "#d1a5d8" }
     ]
-    readonly property var accentSwatches: [[139, 224, 255], [182, 154, 255], [255, 112, 197], [165, 245, 139], [255, 228, 94], [255, 107, 134], [255, 168, 96]]
+    readonly property var accentSwatches: [[0, 170, 255], [158, 92, 255], [255, 64, 129], [45, 205, 120], [255, 190, 0], [255, 72, 72], [255, 130, 30]]
 
     // ---- defaults (also the reset target and the recovery values) ----
     readonly property var defaults: ({
-        palette: "navy", accent: "", glass: 0.62,
-        blurSize: 8, blurPasses: 3, blurBrightness: 100,
+        palette: "navy", accent: "", glass: 0.26,
+        blurSize: 8, blurPasses: 1, blurBrightness: 100,
         mode: "dark", styleMode: "glass",
-        colorfulBorders: true, borderWidth: 2,
+        colorfulBorders: true, borderWidth: 2, windowBorderColor: "",
         shellBorders: true, shadows: true, radiusScale: 1.0, fontFamily: "",
         windowRounding: 14, gapsIn: 3, gapsOut: 6, activeOpacity: 0.88, inactiveOpacity: 0.78, windowShadows: false,
         animations: true, animSpeed: 1.0,
         activeTheme: ""
     })
     readonly property var themeKeys: ["palette", "accent", "glass", "blurSize", "blurPasses", "blurBrightness", "mode", "styleMode",
-        "colorfulBorders", "borderWidth", "shellBorders", "shadows", "radiusScale", "fontFamily",
+        "colorfulBorders", "borderWidth", "windowBorderColor", "shellBorders", "shadows", "radiusScale", "fontFamily",
         "windowRounding", "gapsIn", "gapsOut", "activeOpacity", "inactiveOpacity", "windowShadows", "animations", "animSpeed"]
 
     // ---- current values (persisted). Change them only through set()/apply functions ----
     property string paletteId: "navy"
     property string accentOverride: ""
-    property real   glassOpacity: 0.62
+    property real   glassOpacity: 0.26
     property int    blurSize: 8
-    property int    blurPasses: 3
+    property int    blurPasses: 1
     property int    blurBrightness: 100
     property string mode: "dark"
     property string styleMode: "glass"
     property bool   colorfulBorders: true
     property int    borderWidth: 2
+    property string windowBorderColor: ""
     property bool   shellBorders: true
     property bool   shadows: true
     property real   radiusScale: 1.0
@@ -103,14 +116,15 @@ Singleton {
         switch (k) {
         case "palette": return palettes.some(function (p) { return p.id === v }) ? v : d
         case "accent": return normHex(v)
-        case "glass": return clamp(v, 0.15, 1, d)
+        case "glass": return clamp(v, 0, 0.45, d)
         case "blurSize": return Math.round(clamp(v, 1, 24, d))
         case "blurPasses": return Math.round(clamp(v, 1, 6, d))
         case "blurBrightness": return Math.round(clamp(v, 60, 160, d))
         case "mode": return v === "light" ? "light" : "dark"
         case "styleMode": return v === "solid" ? "solid" : "glass"
-        case "borderWidth": return Math.round(clamp(v, 0, 4, d))
-        case "radiusScale": return clamp(v, 0.4, 1.6, d)
+        case "borderWidth": return Math.round(clamp(v, 0, 6, d))
+        case "windowBorderColor": return normHex(v)
+        case "radiusScale": return clamp(v, 0, 1.6, d)
         case "fontFamily": return typeof v === "string" && v.length < 80 ? v : ""
         case "windowRounding": return Math.round(clamp(v, 0, 30, d))
         case "gapsIn": return Math.round(clamp(v, 0, 30, d))
@@ -128,14 +142,14 @@ Singleton {
     readonly property var propOf: ({
         palette: "paletteId", accent: "accentOverride", glass: "glassOpacity", blurSize: "blurSize", blurPasses: "blurPasses",
         blurBrightness: "blurBrightness", mode: "mode", styleMode: "styleMode", colorfulBorders: "colorfulBorders",
-        borderWidth: "borderWidth", shellBorders: "shellBorders", shadows: "shadows", radiusScale: "radiusScale",
+        borderWidth: "borderWidth", windowBorderColor: "windowBorderColor", shellBorders: "shellBorders", shadows: "shadows", radiusScale: "radiusScale",
         fontFamily: "fontFamily", windowRounding: "windowRounding", gapsIn: "gapsIn", gapsOut: "gapsOut",
         activeOpacity: "activeOpacity", inactiveOpacity: "inactiveOpacity", windowShadows: "windowShadows",
         animations: "animations", animSpeed: "animSpeed", activeTheme: "activeTheme"
     })
-    readonly property var hyprKeys: ["palette", "accent", "styleMode", "blurSize", "blurPasses", "blurBrightness", "colorfulBorders",
+    readonly property var hyprKeys: ["palette", "accent", "windowBorderColor", "styleMode", "blurSize", "blurPasses", "blurBrightness", "colorfulBorders",
         "borderWidth", "windowRounding", "gapsIn", "gapsOut", "activeOpacity", "inactiveOpacity", "windowShadows", "animations", "animSpeed"]
-    readonly property var exportKeys: ["palette", "accent", "glass", "blurSize", "mode", "styleMode"]
+    readonly property var exportKeys: ["palette", "accent", "windowBorderColor", "borderWidth", "shellBorders", "glass", "blurSize", "blurBrightness", "windowRounding", "mode", "styleMode", "fontFamily"]
 
     function get(k) { return theme[propOf[k]] }
     function snapshot() {
@@ -164,6 +178,11 @@ Singleton {
         if (changed.indexOf("mode") >= 0) applyMode()
         afterChange(changed)
     }
+    function setCornerRadius(value) {
+        var px = Math.round(clamp(value, 0, 30, windowRounding))
+        var scale = px <= 14 ? px / 14 : 1 + (px - 14) * 0.6 / 16
+        setMany({ windowRounding: px, radiusScale: scale })
+    }
     function afterChange(keys) {
         if (!keys.length || !loaded) return
         saveTimer.restart()
@@ -187,6 +206,13 @@ Singleton {
     function setColorfulBorders(v){ set("colorfulBorders", !!v) }
     function setBorderWidth(v)    { set("borderWidth", v) }
     function setMode(m)           { set("mode", m) }
+    function setGlobalBorders(enabled) {
+        var on = !!enabled
+        // Window borders are independent of the optional outlines inside the
+        // shell panels. The width is the single switch shared by Hyprland and
+        // themed application frames.
+        set("borderWidth", on ? Math.max(2, borderWidth) : 0)
+    }
     function touch()              { saveTimer.restart(); exportTimer.restart() }
 
     // ---- user themes ----
@@ -313,25 +339,31 @@ Singleton {
 
     // In light mode the tint is washed out to paper; glass gets a little more body for dark text.
     readonly property var baseTint: light ? mixA(palette.tint, [255, 255, 255], 0.86) : palette.tint
-    readonly property real op: light ? 0.38 + 0.62 * glassOpacity : glassOpacity
+    readonly property real op: styleMode === "solid" ? 1 : (light ? 0.38 + 0.62 * glassOpacity : glassOpacity)
     function glass(alpha, white) {
         var c = baseTint, w = light ? white * 0.6 : white
+        var opacity = styleMode === "solid" ? 1 : glassOpacity
         return Qt.rgba((c[0] + (255 - c[0]) * w) / 255, (c[1] + (255 - c[1]) * w) / 255,
-                       (c[2] + (255 - c[2]) * w) / 255, styleMode === "solid" ? 1 : Math.min(1, alpha))
+                       (c[2] + (255 - c[2]) * w) / 255, opacity)
     }
     readonly property real whiteMix: 0.04 + 0.16 * op
 
     // light pills need body to stay readable over dark wallpapers (they read as grey otherwise)
-    readonly property color glassBarTop:     light ? glass(0.72 + 0.24 * glassOpacity, whiteMix) : glass(0.06 + 0.72 * op, whiteMix)
-    readonly property color glassBarBottom:  light ? glass(0.76 + 0.22 * glassOpacity, whiteMix * 0.5) : glass(0.10 + 0.68 * op, whiteMix * 0.5)
-    readonly property color glassPopTop:     glass(0.22 + 0.66 * op, whiteMix)
-    readonly property color glassPopBottom:  glass(0.26 + 0.64 * op, whiteMix * 0.5)
+    readonly property color glassBarTop: styleMode === "glass" ? glassPopTop
+        : (light ? glass(0.72 + 0.24 * glassOpacity, whiteMix) : glass(0.06 + 0.72 * op, whiteMix))
+    readonly property color glassBarBottom: styleMode === "glass" ? glassPopBottom
+        : (light ? glass(0.76 + 0.22 * glassOpacity, whiteMix * 0.5) : glass(0.10 + 0.68 * op, whiteMix * 0.5))
+    // Denser Material-style panel surfaces keep text crisp over varied wallpapers.
+    // Solid surfaces share one exact token across the bar, dropdowns, and Settings.
+    // Glass mode keeps the denser two-stop panel treatment for legibility.
+    readonly property color glassPopTop: surface
+    readonly property color glassPopBottom: surface
     readonly property color glassCritTop:    light ? Qt.rgba(1, 0.86, 0.89, 0.6 + 0.35 * op) : Qt.rgba(0.325, 0.165, 0.345, 0.42 + 0.44 * op)
     readonly property color glassCritBottom: light ? Qt.rgba(1, 0.80, 0.84, 0.6 + 0.35 * op) : Qt.rgba(0.165, 0.070, 0.188, 0.38 + 0.44 * op)
 
     readonly property color ink: light ? "#000000" : "#ffffff"
-    readonly property color surface: styleMode === "solid" ? glass(1, light ? 0.5 : 0.04) : Qt.alpha(ink, (light ? 0.05 : 0.06) + 0.07 * (1 - op))
-    readonly property color surfaceHi: styleMode === "solid" ? glass(1, light ? 0.8 : 0.10) : Qt.alpha(ink, (light ? 0.09 : 0.11) + 0.10 * (1 - op))
+    readonly property color surface: glass(1, light ? 0.5 : 0.04)
+    readonly property color surfaceHi: glass(1, light ? 0.8 : 0.10)
     readonly property color border: Qt.alpha(ink, styleMode === "solid" ? 0.14 : (light ? 0.12 : 0.08))
     readonly property color track: Qt.alpha(ink, light ? 0.14 : 0.16)
     readonly property color scrim: Qt.rgba(0, 0, 0, light ? 0.28 : 0.5)
@@ -340,13 +372,24 @@ Singleton {
     readonly property int   strokeWidth: shellBorders ? 1 : 0
     readonly property color stroke: shellBorders ? border : "transparent"
     readonly property color separator: shellBorders ? border : "transparent"
+    // The top bar's outer frame follows the global Window borders switch. Keep
+    // it visible against glass and wallpaper with the selected window accent.
+    readonly property int   barBorderWidth: borderWidth > 0 ? Math.max(1, Math.min(2, borderWidth)) : 0
+    readonly property color barBorderColor: barBorderWidth > 0
+        ? Qt.alpha(windowBorderColor !== "" ? windowBorderColor : accent, 0.92)
+        : "transparent"
+    // Both bar layouts share one outline policy: global window borders set the
+    // stronger accent edge; panel outlines provide the subtle fallback hairline.
+    readonly property int   barSurfaceBorderWidth: Math.max(barBorderWidth, strokeWidth)
+    readonly property color barSurfaceBorderColor: barBorderWidth > 0 ? barBorderColor : stroke
+    readonly property string commonBorderHex: windowBorderColor !== "" ? windowBorderColor : accentHex
     readonly property color shadowColor: shadows ? (light ? "#26000000" : "#44000000") : "transparent"
 
     // ---- lock screen (kept for Lock*: LockStyle copies these once per lock) ----
     readonly property color lockBg:     glass(1, 0)
     readonly property color lockTop:    glass(0.18 + 0.62 * op, whiteMix)
     readonly property color lockBottom: glass(0.24 + 0.62 * op, whiteMix * 0.5)
-    readonly property real  lockBlur:   0.25 + 0.75 * glassOpacity
+    readonly property real  lockBlur:   styleMode === "solid" ? 1 : (0.25 + 0.75 * glassOpacity)
 
     // ---- text ----
     readonly property color text:  light ? rgb(mixA(palette.tint, [0, 0, 0], 0.72)) : (palette.text || "#f4f1ff")
@@ -386,26 +429,32 @@ Singleton {
     readonly property int iconBarBox: 18
     readonly property int iconPanel:  17
     readonly property int iconBox:    22
-    readonly property int islandHeight: Settings.barDensity === "comfortable" ? 30 : 26
-    readonly property int barMargin:    3
-    readonly property int pillGap:      6
+    readonly property int islandHeight: Settings.barDensity === "comfortable" ? 33 : 29
+    readonly property int barMargin:    gapsOut
+    readonly property int pillGap:      gapsIn
     readonly property int barHeight:    islandHeight + barMargin * 2
     readonly property int pad: 16
     readonly property int radius: Math.round(18 * radiusScale)
     readonly property int controlRadius: Math.round(12 * radiusScale)
     readonly property int smallRadius: Math.round(9 * radiusScale)
-    function pill(h) { return radiusScale >= 1 ? h / 2 : Math.max(2, h / 2 * radiusScale) }
-    readonly property int barSideInset: 10
+    function pill(h) { return radiusScale >= 1 ? h / 2 : Math.max(0, h / 2 * radiusScale) }
+    readonly property int barSideInset: gapsOut
     readonly property int barButtonHeight: islandHeight
     readonly property int barIcon: Math.round(islandHeight * 0.66)          // 17 compact / 20 comfortable
     readonly property int barIconBox: barIcon + 2
     readonly property int barPillPadX: Math.round(islandHeight * 0.34)      // icon-only pill = 34 x 26
-    readonly property int barLabelSize: Settings.barDensity === "comfortable" ? 13 : 12
+    readonly property int barLabelSize: Settings.barDensity === "comfortable" ? 15 : 14
     readonly property real pillStrokeAlpha: light ? 0.10 : 0.09
     readonly property color pillStroke: shellBorders ? Qt.alpha(ink, pillStrokeAlpha) : "transparent"
-    readonly property color pillSheen: light ? Qt.rgba(1, 1, 1, 0.55) : Qt.rgba(1, 1, 1, 0.07)
+    // The pill highlight follows the same glass-finish slider as the surface;
+    // at Clear it disappears instead of leaving a fixed translucent wash.
+    readonly property color pillSheen: styleMode === "glass"
+        ? (light ? Qt.rgba(1, 1, 1, 0.55 * glassOpacity) : Qt.rgba(1, 1, 1, 0.07 * glassOpacity))
+        : "transparent"
     readonly property color pillHover: Qt.alpha(ink, light ? 0.06 : 0.08)
     readonly property color pillPress: Qt.alpha(ink, light ? 0.11 : 0.14)
+    // Apply the Bar & widgets icon style consistently; semantic warning states
+    // (for example muted microphone or critically low battery) bypass this helper.
     function barTone(c) { return Settings.barIconStyle === "mono" ? text : c }
     readonly property int barButtonPadding: 6
     readonly property int barButtonGap: 6
@@ -466,8 +515,21 @@ Singleton {
         power: [0xF8C7, 0xF0425], micOff: [0xE02B, 0xF036D], play: [0xE037, 0xF040A], pause: [0xE034, 0xF03E4],
         music: [0xE405, 0xF075A], brightness: [0xE518, 0xF00DF],
         lock: [0xE899, 0xF033E], arrowForward: [0xE5C8, 0xF0054], spinner: [0xE9D0, 0xF0450], sleep: [0xF159, 0xF04B2],
-        restart: [0xF053, 0xF0709], skipNext: [0xE044, 0xF04AD], skipPrev: [0xE045, 0xF04AE]
+        restart: [0xF053, 0xF0709], skipNext: [0xE044, 0xF04AD], skipPrev: [0xE045, 0xF04AE],
+        settings: [0xE8B8, 0xF0493], search: [0xE8B6, 0xF0349], close: [0xE5CD, 0xF0156],
+        check: [0xE5CA, 0xF012C], add: [0xE145, 0xF0415], remove: [0xE15B, 0xF0416],
+        sunny: [0xE518, 0xF00E0], darkMode: [0xE51C, 0xF0594], keyboard: [0xE312, 0xF030C],
+        monitor: [0xE30A, 0xF0379], info: [0xE88E, 0xF02FC], dashboard: [0xE871, 0xF056E],
+        wallpaper: [0xE75F, 0xF02F9], window: [0xE8F4, 0xF05AF],
+        arrowBack: [0xE5C4, 0xF0141], arrowForward: [0xE5C8, 0xF0142],
+        apps: [0xE5C3, 0xF003B], font: [0xE262, 0xF06D6], folder: [0xE2C7, 0xF024B]
     })
+    function symbolForCode(code) {
+        if (!code) return undefined
+        var names = Object.keys(sym)
+        for (var i = 0; i < names.length; ++i) if (sym[names[i]][1] === code) return sym[names[i]]
+        return undefined
+    }
     function batterySym(cap, state) {
         if (state === "Charging") return "batCharging"
         if (cap < 8) return "batAlert"
@@ -581,6 +643,25 @@ Singleton {
     //  compositor sync (hypr/sleekshell/look.lua reads the generated file; survives reloads)
     // =========================================================================
     FileView { id: hyprLook; path: theme.configDir + "/hypr-look.lua"; printErrors: false; atomicWrites: true }
+    function startHyprApply() {
+        if (!theme.loaded) return
+        if (hyprApply.running) { theme.hyprPending = true; return }
+        hyprApply.command = ["hyprctl", "eval", "require('sleekshell.look').apply()"]
+        theme.compositorStatus = "Applying…"
+        hyprApply.running = true
+    }
+    Timer {
+        id: hyprSaveFallback
+        interval: 350
+        onTriggered: theme.startHyprApply()
+    }
+    Connections {
+        target: hyprLook
+        function onSaved() {
+            hyprSaveFallback.stop()
+            theme.startHyprApply()
+        }
+    }
     Process {
         id: hyprApply
         stdout: StdioCollector { id: hyprOut }
@@ -597,17 +678,16 @@ Singleton {
         onTriggered: {
             if (hyprApply.running) { theme.hyprPending = true; return }
             var lua = "-- Generated by Sleek Shell Settings. Do not edit by hand; use Settings (SUPER+I).\nreturn {\n" +
-                "    border_width = " + theme.borderWidth + ", colorful = " + theme.colorfulBorders +
-                ", accent = \"" + theme.accentHex.replace("#", "") + "\", secondary = \"" + theme.hex(theme.palette.accent) + "\", inactive = \"66667888\",\n" +
-                "    blur_enabled = " + (theme.styleMode === "glass") + ", blur_size = " + theme.blurSize + ", blur_passes = " + theme.blurPasses +
+                "    border_width = " + theme.borderWidth + ", colorful = " + (theme.colorfulBorders && theme.windowBorderColor === "") +
+                ", accent = \"" + theme.commonBorderHex.replace("#", "") + "\", secondary = \"" + theme.hex(theme.palette.accent) + "\", border_color = \"" + theme.windowBorderColor.replace("#", "") + "\", inactive = \"" + theme.commonBorderHex.replace("#", "") + "aa\",\n" +
+                "    blur_enabled = " + (theme.styleMode === "glass" && theme.glassOpacity > 0) + ", blur_size = " + theme.blurSize + ", blur_passes = " + theme.blurPasses +
                 ", blur_brightness = " + (theme.blurBrightness / 100).toFixed(2) + ",\n" +
                 "    rounding = " + theme.windowRounding + ", gaps_in = " + theme.gapsIn + ", gaps_out = " + theme.gapsOut +
-                ", active_opacity = " + theme.activeOpacity.toFixed(2) + ", inactive_opacity = " + theme.inactiveOpacity.toFixed(2) + ",\n" +
-                "    shadows = " + theme.windowShadows + ", anim_enabled = " + theme.animations + ", anim_speed = " + theme.animSpeed.toFixed(2) + ",\n}\n"
+                ", active_opacity = " + (theme.styleMode === "solid" ? "1.00" : theme.activeOpacity.toFixed(2)) +
+                ", inactive_opacity = " + (theme.styleMode === "solid" ? "1.00" : theme.inactiveOpacity.toFixed(2)) + ",\n" +
+                "    shadows = " + theme.windowShadows + ", shadow_range = 22, shadow_power = 3, anim_enabled = " + theme.animations + ", anim_speed = " + theme.animSpeed.toFixed(2) + ",\n}\n"
             hyprLook.setText(lua)
-            hyprApply.command = ["hyprctl", "eval", "require('sleekshell.look').apply()"]
-            theme.compositorStatus = "Applying…"
-            hyprApply.running = true
+            hyprSaveFallback.restart()
         }
     }
     function applyHypr() { applyTimer.restart() }
@@ -623,6 +703,7 @@ Singleton {
     // =========================================================================
     readonly property var themedApps: [
         { id: "kitty", name: "Kitty", icon: "terminal", what: "~/.config/kitty/theme.conf", when: "New kitty windows (Ctrl+Shift+F5 reloads open ones)", offNote: "Kitty goes back to the colours in your kitty.conf." },
+        { id: "alacritty", name: "Alacritty", icon: "terminal", what: "~/.config/alacritty/theme.toml", when: "New Alacritty windows", offNote: "Alacritty stops importing the Sleek Shell color file." },
         { id: "rofi",  name: "Rofi launcher", icon: "apps", what: "~/.config/rofi/themes/rice.rasi", when: "Next time the launcher opens", offNote: "The launcher keeps its last colours." },
         { id: "gtk",   name: "GTK 3 / 4 apps", icon: "window", what: "~/.config/gtk-3.0 and gtk-4.0/gtk.css", when: "Restart the app", offNote: "Sleek Shell stops editing gtk.css; the last accent stays until you change it." },
         { id: "qt",    name: "Qt / KDE apps", icon: "folder", what: "~/.config/kdeglobals", when: "Most KDE apps update live; others on restart", offNote: "Sleek Shell stops editing kdeglobals; pick a colour scheme in your Qt settings." },
@@ -658,13 +739,34 @@ Singleton {
         r[id] = cur; appRules = r; saveApps()
     }
     function resetApps() { appScope = "all"; appRules = ({}); saveApps() }
+    function colorHex(c) {
+        // Palette text/muted entries are stored as hex strings, while computed
+        // theme colours are QColor values. Accept both so custom dark app
+        // palettes do not export invalid values such as #NaNNaNNaN.
+        if (typeof c === "string") {
+            var value = normHex(c)
+            if (value !== "") return value
+        }
+        if (!c || isNaN(c.r) || isNaN(c.g) || isNaN(c.b)) return "#f3f5f8"
+        return "#" + hex([Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)])
+    }
+    function appTint(p) { return light ? mixA(p.tint, [255, 255, 255], 0.86) : p.tint }
+    function appText(p) { return light ? rgb(mixA(p.tint, [0, 0, 0], 0.72)) : p.text }
+    function appMuted(p) { return light ? rgb(mixA(p.tint, [92, 92, 104], 0.45)) : p.muted }
+    function solidSurfaceHex(tint, hi) {
+        var whiteMix = light ? (hi ? 0.8 : 0.5) * 0.6 : (hi ? 0.10 : 0.04)
+        return "#" + hex(mixA(tint, [255, 255, 255], whiteMix))
+    }
     function appColours(id) {
         var m = appMode(id)
         if (m === "off") return { on: false }
-        if (m !== "custom") return { on: true }
-        var x = appRule(id), p = findPalette(x.palette)
-        return { on: true, tintR: p.tint[0], tintG: p.tint[1], tintB: p.tint[2], accent: x.accent || "#" + hex(p.accent),
-                 text: p.text, muted: p.muted, dim: "" + Qt.tint(p.muted, "#55000000") }
+        if (m !== "custom") return { on: true, surface: colorHex(theme.surface), surfaceHi: colorHex(theme.surfaceHi) }
+        var x = appRule(id), p = findPalette(x.palette), tint = appTint(p), fg = appText(p), mutedColor = appMuted(p)
+        var appAccent = x.accent !== "" ? x.accent : colorHex(rgb(p.accent))
+        if (light) appAccent = colorHex(Qt.darker(appAccent, 1.25))
+        return { on: true, tintR: Math.round(tint[0]), tintG: Math.round(tint[1]), tintB: Math.round(tint[2]), accent: appAccent,
+                 surface: solidSurfaceHex(tint, false), surfaceHi: solidSurfaceHex(tint, true),
+                 text: colorHex(fg), muted: colorHex(mutedColor), dim: "" + Qt.tint(mutedColor, "#55000000") }
     }
     function themedSummary() {
         var on = themedApps.filter(function (a) { return appMode(a.id) !== "off" }).length
@@ -677,10 +779,16 @@ Singleton {
         interval: 600
         onTriggered: {
             var o = {
-                theme: theme.paletteId, tintR: theme.palette.tint[0], tintG: theme.palette.tint[1], tintB: theme.palette.tint[2],
-                accent: theme.accentHex, text: "" + (theme.palette.text || "#f4f1ff"), muted: "" + (theme.palette.muted || "#a9a6cc"),
-                dim: "" + Qt.tint(theme.palette.muted || "#a9a6cc", "#55000000"),
-                glass: Math.round(theme.glassOpacity * 100) / 100, blur: theme.blurSize, mode: theme.mode,
+                theme: theme.paletteId,
+                tintR: Math.round(theme.baseTint[0]), tintG: Math.round(theme.baseTint[1]), tintB: Math.round(theme.baseTint[2]),
+                accent: theme.colorHex(theme.accent), text: theme.colorHex(theme.text), muted: theme.colorHex(theme.muted),
+                surface: theme.colorHex(theme.surface), surfaceHi: theme.colorHex(theme.surfaceHi),
+                borderColor: theme.commonBorderHex, borderWidth: theme.borderWidth, shellBorders: theme.shellBorders,
+                onAccent: theme.colorHex(theme.onAccent),
+                dim: "" + Qt.tint(theme.muted, "#55000000"), fontFamily: theme.font,
+                glass: Math.round(theme.glassOpacity * 100) / 100, blur: theme.blurSize, blurBrightness: theme.blurBrightness,
+                windowRounding: theme.windowRounding,
+                mode: theme.mode,
                 styleMode: theme.styleMode, apps: {}
             }
             theme.themedApps.forEach(function (a) { o.apps[a.id] = theme.appColours(a.id) })

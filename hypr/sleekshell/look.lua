@@ -21,7 +21,10 @@ M.state_path = HOME .. "/.config/sleek-shell/hypr-look.lua"
 
 M.defaults = {
     border_width = 2, colorful = true,
-    accent = "7c9cff", secondary = "b68cff", inactive = "66667888",
+    -- inactive is the focused border colour at reduced alpha (RRGGBBAA). It used to be a
+    -- hard-coded dark grey, which at 1 px looked invisible until the pointer focused the
+    -- window (follow_mouse = 1), so borders seemed to appear only on hover.
+    accent = "7c9cff", secondary = "b68cff", border_color = "", inactive = "7c9cffaa",
     blur_enabled = true, blur_size = 8, blur_passes = 3, blur_brightness = 1.0,
     rounding = 14, gaps_in = 3, gaps_out = 6,
     active_opacity = 0.88, inactive_opacity = 0.78,
@@ -34,9 +37,12 @@ M.defaults = {
 M.animations = {
     { "global",        10,   "bezier", "default" },
     { "border",        5.39, "bezier", "easeOutQuint" },
-    { "windows",       4.79, "spring", "easy" },
-    { "windowsIn",     4.1,  "spring", "easy",         "popin 87%" },
-    { "windowsOut",    1.49, "bezier", "linear",       "popin 87%" },
+    -- Bezier (not spring) for window open/close: spring curves have a long settling tail
+    -- that ignores the Motion speed value, which made app launches feel slow and unresponsive
+    -- to the slider. These curves scale cleanly with anim_speed.
+    { "windows",       2.2,  "bezier", "quick" },
+    { "windowsIn",     1.9,  "bezier", "quick",        "popin 92%" },
+    { "windowsOut",    1.3,  "bezier", "linear",       "popin 92%" },
     { "fadeIn",        1.73, "bezier", "almostLinear" },
     { "fadeOut",       1.46, "bezier", "almostLinear" },
     { "fade",          3.03, "bezier", "quick" },
@@ -75,7 +81,11 @@ function M.load()
     s.colorful         = bool(t.colorful, d.colorful)
     s.accent           = hex(t.accent, 6, d.accent)
     s.secondary        = hex(t.secondary, 6, d.secondary)
+    s.border_color     = hex(t.border_color, 6, d.border_color)
     s.inactive         = hex(t.inactive, 8, d.inactive)
+    -- State files written before unfocused borders were made visible stored a faint dark
+    -- grey; derive the dim border from the accent instead so upgrading cannot regress it.
+    if s.inactive == "66667888" then s.inactive = s.accent .. "aa" end
     s.blur_enabled     = bool(t.blur_enabled, d.blur_enabled)
     s.blur_size        = math.floor(num(t.blur_size, 1, 24, d.blur_size))
     s.blur_passes      = math.floor(num(t.blur_passes, 1, 6, d.blur_passes))
@@ -95,9 +105,74 @@ end
 function M.apply()
     local s = M.load()
 
+    -- Layer surfaces need their own blur rules. Keep the settings dim backdrop
+    -- separate so this frosts only the Settings card, not the whole desktop.
+    if not M.bar_blur_rule then
+        local ok, rule = pcall(function()
+            return hl.layer_rule({
+                name = "sleekshell-bar-blur-popups",
+                match = { namespace = "^quickshell-bar$" },
+                blur = true,
+                blur_popups = true,
+                ignore_alpha = 0.02,
+            })
+        end)
+        if ok then M.bar_blur_rule = rule end
+    end
+    if M.bar_blur_rule then pcall(function() M.bar_blur_rule:set_enabled(s.blur_enabled) end) end
+
+    -- Dropdowns are separate layer-shell surfaces (namespace quickshell-dropdown); the bar's
+    -- blur_popups rule no longer reaches them, so frost them with their own rule.
+    if not M.dropdown_blur_rule then
+        local ok, rule = pcall(function()
+            return hl.layer_rule({
+                name = "sleekshell-dropdown-blur",
+                match = { namespace = "^quickshell-dropdown$" },
+                blur = true,
+                blur_popups = true,
+                ignore_alpha = 0.02,
+            })
+        end)
+        if ok then M.dropdown_blur_rule = rule end
+    end
+    if M.dropdown_blur_rule then pcall(function() M.dropdown_blur_rule:set_enabled(s.blur_enabled) end) end
+
+    if not M.settings_blur_rule then
+        local ok, rule = pcall(function()
+            return hl.layer_rule({
+                name = "sleekshell-settings-blur",
+                match = { namespace = "^quickshell-settings$" },
+                blur = true,
+                blur_popups = true,
+                ignore_alpha = 0.02,
+            })
+        end)
+        if ok then M.settings_blur_rule = rule end
+    end
+    if M.settings_blur_rule then pcall(function() M.settings_blur_rule:set_enabled(s.blur_enabled) end) end
+
+    -- Rofi uses a Wayland layer surface too; apply the same live frost controls.
+    if not M.rofi_blur_rule then
+        local ok, rule = pcall(function()
+            return hl.layer_rule({
+                name = "sleekshell-rofi-blur",
+                match = { namespace = "^rofi$" },
+                blur = true,
+                blur_popups = true,
+                ignore_alpha = 0.02,
+            })
+        end)
+        if ok then M.rofi_blur_rule = rule end
+    end
+    if M.rofi_blur_rule then pcall(function() M.rofi_blur_rule:set_enabled(s.blur_enabled) end) end
+
     local active, inactive
     if s.border_width == 0 then
         active, inactive = "rgba(00000000)", "rgba(00000000)"
+    elseif s.border_color ~= "" then
+        active = "rgba(" .. s.border_color .. "ff)"
+        -- Keep unfocused borders readable instead of a faint ghost of the chosen colour.
+        inactive = "rgba(" .. s.border_color .. "aa)"
     elseif s.colorful then
         active = { colors = { "rgba(" .. s.accent .. "ee)", "rgba(" .. s.secondary .. "aa)" }, angle = 45 }
         inactive = "rgba(" .. s.inactive .. ")"
@@ -117,7 +192,7 @@ function M.apply()
             rounding = s.rounding,
             active_opacity = s.active_opacity,
             inactive_opacity = s.inactive_opacity,
-            shadow = { enabled = s.shadows, range = 18, render_power = 3, color = "rgba(0000004d)" },
+            shadow = { enabled = s.shadows, range = 22, render_power = 3, color = "rgba(00000066)" },
             blur = {
                 enabled = s.blur_enabled,
                 size = s.blur_size,

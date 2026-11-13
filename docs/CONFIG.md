@@ -40,17 +40,68 @@ Other files that are yours and never shipped:
 - `monitors.lua` / `monitors_custom.lua`: written by Settings → Displays or by `nwg-displays`.
 - `custom_binds.lua`: written by Settings → Keyboard.
 
-## Environment variables
+## Programs and environment variables
+
+The default programs are set at the top of `hypr/modules/keybinds.lua`:
+
+```lua
+local terminal    = "kitty --single-instance"
+local fileManager = "thunar"
+local menu        = "rofi -show drun"
+```
+
+Change them there (or rebind in Settings → Keyboard), then reload Hyprland. The shipped config uses
+`$HOME`/`XDG_CONFIG_HOME` for every script path, so it works for any user.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `SLEEK_TERMINAL` | `kitty` | `SUPER+T` |
-| `SLEEK_FILE_MANAGER` | your default app for folders (`xdg-mime`) | `SUPER+E` |
-| `SLEEK_BROWSER` | your default browser (`xdg-settings`) | `SUPER+B` |
-| `SLEEK_NO_NVIDIA_ENV` | unset | Set to `1` to skip the NVIDIA variables that are applied when the proprietary driver is loaded (useful for hybrid laptops that render on the integrated GPU) |
 | `WALLPAPER_DIR` | `~/Pictures/Wallpapers` | Folder used by `SUPER+W` and Settings → Wallpaper |
+| `AWWW_TRANSITION` | the transition from Settings → Wallpaper | Transition passed to `awww` |
+| `PIXEL_LOCK_ON_START` | unset | Set by `~/.zprofile` on an auto-login TTY so `start-shell` requests the PAM lock once |
+| `SLEEK_SYS_ROOT` | empty | Test hook: prefix for `/etc` and `/sys` lookups; leave unset normally |
 
-See [KEYBINDS.md](KEYBINDS.md#changing-programs) for where to set them.
+The hybrid-graphics switch in `hypr/modules/env.lua` keeps the desktop on the integrated GPU when the
+proprietary NVIDIA driver is loaded; use `prime-run APP` for apps that should render on the NVIDIA GPU.
+
+## Shell profile (zsh)
+
+The reference desktop runs zsh with Powerlevel10k. The installer writes these only when you do not
+already have them, so your own shell setup is never replaced:
+
+| File | Contents |
+|---|---|
+| `~/.zshrc` | Powerlevel10k, history, autosuggestions, syntax highlighting, eza aliases, Rust helper, `~/.zshrc.local` hook |
+| `~/.zprofile` | Starts Hyprland on VT1 after an auto-login, with the startup lock flag |
+| `~/.p10k.zsh` | The Powerlevel10k prompt configuration |
+| `~/.powerlevel10k/` | Powerlevel10k itself, cloned by the installer when missing |
+
+Put personal additions in `~/.zshrc.local`; it is sourced last and never touched. If the prompt is
+plain, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#the-zsh-prompt-is-plain).
+
+## Boot (`/etc`)
+
+The boot experience is system configuration, so it lives outside this repository. `arch_boot_apply` in
+`lib/arch.sh` writes it idempotently, backs up every file and rebuilds only when something changed:
+
+| File | Value |
+|---|---|
+| `/etc/plymouth/plymouthd.conf` | `Theme=lone`, `ShowDelay=0` |
+| `/etc/mkinitcpio.conf` | `HOOKS=(… plymouth filesystems plymouth-shutdown)` |
+| `/etc/default/grub` | `GRUB_THEME="/usr/share/grub/themes/stylish/theme.txt"`, `quiet splash`, `GRUB_GFXMODE=1920x1080,auto` |
+
+Then `mkinitcpio -P` and `grub-mkconfig -o /boot/grub/grub.cfg` run. On systems without Plymouth or
+GRUB the current boot is left alone. Backups go to
+`~/.local/share/sleek-shell-backups/<date>/system/`.
+
+## File manager
+
+Thunar is the reference file manager, with `thunar-volman` and `gvfs` for drives, mounts and trash.
+The installer sets Thunar as the `inode/directory` handler **only when no handler is configured**, so
+an existing choice is kept. Change it with:
+
+```sh
+xdg-mime default thunar.desktop inode/directory
+```
 
 ## App theming
 
@@ -106,7 +157,7 @@ bind = SUPER, L, exec, quickshell ipc call lock lock
 
 Also start a polkit agent, or apps that need admin rights cannot ask for your password. On Arch, add
 `exec-once = /usr/lib/hyprpolkitagent/hyprpolkitagent` (or `hl.exec_cmd(...)` in Lua). Sleek Shell's own config uses
-`scripts/polkit-agent.sh`, which picks whichever agent is installed (see [DEPENDENCIES.md](DEPENDENCIES.md)).
+`scripts/polkit-agent`, which picks whichever agent is installed (see [DEPENDENCIES.md](DEPENDENCIES.md)).
 
 Some features need Sleek Shell's Lua modules and are **not available** with your own config:
 - rebinding in Settings → Keyboard;

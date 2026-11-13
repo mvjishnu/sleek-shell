@@ -11,7 +11,7 @@ Rectangle {
     default property alias content: col.data
     Layout.fillWidth: true
     implicitHeight: col.implicitHeight + 32
-    radius: Theme.radius
+    radius: Theme.controlRadius
     color: Theme.surface
     border.width: Theme.strokeWidth
     border.color: Theme.stroke

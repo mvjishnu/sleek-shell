@@ -23,16 +23,6 @@ ColumnLayout {
             Behavior on width { enabled: Theme.animations; NumberAnimation { duration: Theme.durSlow } }
         }
     }
-    Divider { visible: Sys.hasBacklight }
-    SliderRow {
-        visible: Sys.hasBacklight
-        code: Theme.ic.sun
-        accent: Theme.yellow
-        accessibleName: "Brightness"
-        from: 1
-        value: Sys.brightness
-        onMoved: v => Sys.setBrightness(v)
-    }
     Divider { visible: Sys.profile !== "" }
     SectionLabel { visible: Sys.profile !== ""; title: "Power profile" }
     RowLayout {

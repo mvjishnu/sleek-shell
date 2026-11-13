@@ -29,18 +29,20 @@ GridLayout {
                 anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 2 }
                 width: 36; height: 36; radius: 18
                 color: "transparent"
-                border.width: cell.selected || cell.activeFocus || ma.containsMouse ? 2 : 0
+                border.width: Theme.shellBorders && (cell.selected || cell.activeFocus || ma.containsMouse) ? 2 : 0
                 border.color: cell.activeFocus ? Theme.text : (cell.selected ? Theme.accent : Theme.border)
                 Rectangle {
                     anchors.centerIn: parent
                     width: 28; height: 28; radius: 14
-                    gradient: Gradient {
-                        GradientStop { position: 0; color: Theme.rgb(cell.modelData.accent) }
-                        GradientStop { position: 1; color: Theme.rgb(cell.modelData.tint) }
-                    }
+                    color: Theme.rgb(cell.modelData.accent)
                     scale: ma.pressed ? 0.88 : (ma.containsMouse ? 1.06 : 1)
                     Behavior on scale { enabled: Theme.animations; NumberAnimation { duration: Theme.durFast; easing.type: Easing.OutBack } }
-                    Glyph { anchors.centerIn: parent; code: cell.selected ? Theme.ic.check : 0; color: "#ffffff"; size: 14 }
+                    Glyph {
+                        anchors.centerIn: parent
+                        code: cell.selected ? Theme.ic.check : 0
+                        color: Theme.luminance(Theme.rgb(cell.modelData.accent)) > 0.55 ? "#111318" : "#ffffff"
+                        size: 14
+                    }
                 }
             }
             Text {

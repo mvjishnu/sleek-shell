@@ -1,0 +1,8 @@
+# Start Hyprland directly on the auto-logged-in first virtual terminal.
+# start-shell consumes this flag and requests one PAM-authenticated lock after
+# Quickshell starts. The flag is not used by shell reloads.
+if [[ -z "${WAYLAND_DISPLAY:-}" && "${XDG_VTNR:-}" == "1" && -t 0 ]]; then
+  export PIXEL_LOCK_ON_START=1
+  mkdir -p "$HOME/.local/state/hyprland"
+  exec start-hyprland >"$HOME/.local/state/hyprland/startup.log" 2>&1
+fi

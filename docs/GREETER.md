@@ -47,7 +47,8 @@ show as boxes: outside Arch, put the font in `/usr/local/share/fonts`, run `sudo
 
 After login, greetd starts your session through `/bin/sh`. That reads only `/etc/profile` and `~/.profile`, not
 `~/.bashrc`, `~/.bash_profile` or zsh files. Put environment variables the desktop needs in `~/.profile`, for example
-`~/.local/bin` on `PATH`, `QT_QPA_PLATFORMTHEME` and `SLEEK_TERMINAL`.
+`~/.local/bin` on `PATH` and `QT_QPA_PLATFORMTHEME`. The default programs (terminal, file manager, launcher)
+are set in `hypr/modules/keybinds.lua`, not in the environment.
 
 ## Install
 Install Sleek Shell first (`./install.sh`). Then, from the repository (or from `~/.local/share/sleek-shell/greeter/`):

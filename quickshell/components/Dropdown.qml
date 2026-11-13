@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Wayland
 import qs.services
 
 // Dynamic-island dropdown: starts as a pill on top of its bar button, then springs open
@@ -10,7 +11,7 @@ import qs.services
 // Performance: the content column is laid out ONCE at its final width and stays put on screen;
 // the card only reveals it (clip), so nothing re-lays-out per frame and no offscreen layer is
 // re-allocated while the size animates. With animations off it opens instantly.
-PopupWindow {
+PanelWindow {
     id: win
     required property var barWindow
     property Item target: null
@@ -24,41 +25,32 @@ PopupWindow {
     readonly property real maxCardHeight: Math.max(startH, screenHeight - Theme.barHeight - Theme.popupEdgeInset * 2 - Theme.popupOverscan)
     readonly property real fullH: Math.min(col.implicitHeight + Theme.popupInset * 2, maxCardHeight)
     readonly property real finalX: Theme.popupOverscan
-
     property real originCx: 0
     property real startW: 40
     property real startH: 28
     property real pw: 0
     property real ph: 0
+    property real marginLeft: Theme.popupOverscan
+    property real marginTop: Theme.barHeight
 
-    anchor.window: barWindow
-    anchor.edges: Edges.Bottom | Edges.Left
-    anchor.gravity: Edges.Bottom | Edges.Right
-    anchor.adjustment: PopupAdjustment.SlideX | PopupAdjustment.SlideY | PopupAdjustment.ResizeY
+    // A layer-shell surface instead of an xdg_popup: no pointer grab is taken, so the first
+    // click on any other window (including another monitor's bar) is delivered normally.
+    // Keyboard focus is claimed only while open so text fields (Wi-Fi password, search) type.
+    screen: barWindow.screen
+    visible: false
+    anchors { top: true; left: true }
+    margins { left: win.marginLeft; top: win.marginTop }
     implicitWidth: cardWidth + Theme.popupOverscan * 2
     implicitHeight: fullH + Theme.popupOverscan
     color: "transparent"
-    grabFocus: true
-    onVisibleChanged: if (!visible && open) dismissed()
-
-    // the compositor ended the popup grab (outside click). A click on another bar button is swallowed
-    // by the dismissal, so forward it: switching between bar panels stays a single click.
-    function dismissed() {
-        var hit = null
-        var isl = barWindow.islands || {}
-        for (var k in isl) if (!hit && isl[k] && isl[k] !== target) hit = hoveredButton(isl[k], 3)
-        Sys.close()
-        if (hit) { forward.hit = hit; forward.restart() }
-    }
-    function hoveredButton(it, depth) {
-        if (!it || !it.visible) return null
-        if (it.hovered === true && typeof it.clicked === "function") return it
-        if (depth <= 0 || !it.children) return null
-        for (var i = 0; i < it.children.length; i++) { var h = hoveredButton(it.children[i], depth - 1); if (h) return h }
-        return null
-    }
-    // let the dismissed popup unmap first: Qt parents a new popup to the topmost grabbing one otherwise
-    Timer { id: forward; interval: 60; property Item hit: null; onTriggered: { if (hit && Sys.openPopup === "") hit.clicked(); hit = null } }
+    surfaceFormat.opaque: false
+    focusable: true
+    exclusionMode: ExclusionMode.Ignore
+    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.namespace: "quickshell-dropdown"
+    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // only the rounded card accepts pointer input; the overscan margins stay click-through
+    mask: Region { item: card }
 
     function refocus() { if (open && !keyScope.activeFocus) keyScope.forceActiveFocus() }
 
@@ -68,10 +60,8 @@ PopupWindow {
         var tw = target && target.visible ? target.width : 40, th = target && target.visible ? target.height : Theme.islandHeight
         var cx = p.x + tw / 2
         var wx = Math.max(Theme.popupEdgeInset, Math.min(cx - cardWidth / 2, barWindow.width - cardWidth - Theme.popupEdgeInset))
-        anchor.rect.x = wx - Theme.popupOverscan
-        anchor.rect.y = p.y
-        anchor.rect.width = 1
-        anchor.rect.height = th + 6
+        marginLeft = wx - Theme.popupOverscan
+        marginTop = p.y + th + 6
         originCx = cx - (wx - Theme.popupOverscan)
         startW = Math.min(tw + 4, cardWidth)
         startH = Math.min(th, fullH)
@@ -85,6 +75,7 @@ PopupWindow {
             if (!visible) { pw = 0; ph = 0 }
             visible = true
             keyScope.forceActiveFocus()
+            focusTimer.restart()
             if (Theme.animations) { wOpen.restart(); hOpen.restart() }
             else { pw = 1; ph = 1 }
         } else {
@@ -93,6 +84,9 @@ PopupWindow {
             else { pw = 0; ph = 0; visible = false }
         }
     }
+
+    // forceActiveFocus() before the surface is mapped can be lost; retry once it exists
+    Timer { id: focusTimer; interval: 40; onTriggered: win.refocus() }
 
     SpringAnimation { id: wOpen; target: win; property: "pw"; to: 1; spring: 7.0 * Math.sqrt(Theme.animSpeed); damping: 0.32; epsilon: 0.002 }
     SpringAnimation { id: hOpen; target: win; property: "ph"; to: 1; spring: 5.5 * Math.sqrt(Theme.animSpeed); damping: 0.30; epsilon: 0.002 }
@@ -104,8 +98,10 @@ PopupWindow {
     }
 
     HyprlandFocusGrab {
-        windows: [win, win.barWindow]
-        active: win.open && !win.grabFocus
+        // Whitelist every bar: clicks on any monitor's bar buttons are delivered on the first
+        // click and switch panels directly. Clicks anywhere else clear the grab and dismiss.
+        windows: [win].concat(Object.keys(Ui.bars || {}).map(function (name) { return Ui.bars[name] }))
+        active: win.open
         onCleared: if (win.open) Sys.close()
     }
 
@@ -125,15 +121,23 @@ PopupWindow {
         width: win.startW + (win.cardWidth - win.startW) * win.pw
         height: win.startH + (win.fullH - win.startH) * win.ph
         x: win.originCx + (win.finalX + win.cardWidth / 2 - win.originCx) * win.pw - width / 2
-        radius: Math.min(height / 2, Theme.radius)
+        radius: Math.min(height / 2, Math.max(24, Theme.radius + 6))
         antialiasing: true
         gradient: Gradient {
             GradientStop { position: 0; color: Theme.glassPopTop }
             GradientStop { position: 1; color: Theme.glassPopBottom }
         }
-        border.width: Theme.strokeWidth
-        border.color: Theme.stroke
+        border.width: Theme.borderWidth
+        border.color: Qt.alpha(Theme.commonBorderHex, 0.92)
         opacity: Math.min(1, win.pw * 5)
+
+        Rectangle {
+            anchors.fill: parent
+            radius: parent.radius
+            visible: Theme.styleMode === "glass"
+            color: Theme.light ? "#ffffff" : "#090a10"
+            opacity: 0.16 * Theme.glassOpacity
+        }
 
         Flickable {
             id: scroll

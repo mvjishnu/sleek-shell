@@ -44,15 +44,16 @@ Item {
                     height: wd.numbers ? wd.chip : wd.dot
                     radius: height / 2
                     antialiasing: true
-                    color: cell.urgent ? Theme.pink : (cell.isActive ? "transparent" : (wd.numbers ? (wsMa.containsMouse ? Theme.pillPress : Theme.pillHover) : (wsMa.containsMouse ? Theme.muted : Theme.dim)))
+                    color: cell.urgent ? Theme.pink : (cell.isActive ? "transparent" : (wd.numbers ? (wsMa.containsMouse ? Theme.pillPress : Theme.pillHover) : Qt.alpha(Theme.barTone(Theme.cyan), wsMa.containsMouse ? 0.72 : 0.42)))
                     gradient: cell.isActive && !cell.urgent ? activeGrad : null
                     Gradient {
                         id: activeGrad
                         orientation: Gradient.Horizontal
                         GradientStop { position: 0; color: Theme.barTone(Theme.cyan) }
-                        GradientStop { position: 1; color: Theme.accent }
+                        GradientStop { position: 1; color: Theme.barTone(Theme.accent) }
                     }
-                    scale: wsMa.containsMouse && !cell.isActive && !wd.numbers ? 1.3 : 1
+                    // Keep the hover highlight comfortably inside the bar's vertical bounds.
+                    scale: wsMa.containsMouse && !cell.isActive && !wd.numbers ? 1.08 : 1
                     Behavior on scale { enabled: Theme.animations; NumberAnimation { duration: Theme.durFast } }
                     Behavior on color { enabled: Theme.animations; ColorAnimation { duration: Theme.durFast } }
                 }
@@ -63,7 +64,7 @@ Item {
                     height: cell.height
                     size: Theme.barLabelSize - 1
                     text: (Wm.wsIds(wd.screenName).indexOf(cell.modelData.id) + 1) || cell.modelData.name
-                    color: cell.isActive ? Theme.onAccent : Theme.muted
+                    color: cell.isActive ? Theme.onAccent : Theme.barTone(Theme.cyan)
                 }
                 MouseArea {
                     id: wsMa
@@ -74,10 +75,5 @@ Item {
                 }
             }
         }
-    }
-    MouseArea {
-        anchors.fill: parent
-        acceptedButtons: Qt.NoButton
-        onWheel: wheel => Wm.stepWs(wd.screenName, wheel.angleDelta.y > 0 ? -1 : 1)
     }
 }

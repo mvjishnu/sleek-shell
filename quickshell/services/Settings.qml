@@ -19,28 +19,33 @@ Singleton {
         notifications: { name: "Notifications", side: "left" },
         clipboard:     { name: "Clipboard", side: "left" },
         workspaces:    { name: "Workspaces", side: "left" },
+        cava:          { name: "Audio visualizer", side: "left" },
         mic:           { name: "Microphone muted indicator", side: "right" },
         media:         { name: "Media player", side: "right" },
-        appearance:    { name: "Appearance", side: "right" },
+        appearance:    { name: "Settings & appearance", side: "left" },
         volume:        { name: "Volume", side: "right" },
         wifi:          { name: "Wi-Fi", side: "right" },
         bluetooth:     { name: "Bluetooth", side: "right" },
         battery:       { name: "Battery & brightness", side: "right" },
-        power:         { name: "Power", side: "left" }
+        brightness:    { name: "Brightness", side: "right" },
+        power:         { name: "Power", side: "right" }
     })
 
     readonly property var defaults: ({
-        barDensity: "compact", barIconStyle: "color",
-        leftOrder: ["power", "notifications", "clipboard", "workspaces"],
-        rightOrder: ["mic", "media", "appearance", "volume", "wifi", "bluetooth", "battery"],
+        barDensity: "compact", barIconStyle: "color", barStyle: "full",
+        leftOrder: ["clipboard", "notifications", "appearance", "cava", "workspaces"],
+        rightOrder: ["mic", "volume", "wifi", "bluetooth", "battery", "brightness", "power", "media"],
         hidden: [],
         clock24h: false, clockSeconds: false, clockDate: true,
+        lockClockFormat: "follow",
         workspaceStyle: "dots",
         dnd: false, toastTimeout: 6, toastMax: 3, historyMax: 80,
         osd: true, islandMedia: true,
         wallpaperDir: "~/Pictures/Wallpapers", wallpaperTransition: "wave",
-        lockAvatar: true, lockShowMedia: true, lockShowNotifications: true, avatarStamp: 0,
-        idleLockMin: 10, idleScreenOffMin: 15, idleSuspendMin: 0, idleRespectInhibitors: true, lockBeforeSleep: true,
+        lockShowMedia: true, lockShowNotifications: true,
+        lockClockStyle: "digital",
+        lockWallpaper: "", lockStyleMode: "inherit", lockBlur: 28, lockShade: 48,
+        idleLockMin: 10, idleScreenOffMin: 15, idleSuspendMin: 0, idleRespectInhibitors: true,
         idleDimSec: 30, idleBatterySeparate: false, idleBatteryLockMin: 5, idleBatteryScreenOffMin: 10, idleBatterySuspendMin: 15,
         appFont: "Noto Sans", appFontSize: 10, monoFont: "JetBrainsMono Nerd Font", monoFontSize: 11,
         iconTheme: "Papirus-Dark", cursorTheme: "Adwaita", cursorSize: 24
@@ -48,10 +53,12 @@ Singleton {
 
     property string barDensity: "compact"
     property string barIconStyle: "color"
+    property string barStyle: "full"
     property var    leftOrder: defaults.leftOrder
     property var    rightOrder: defaults.rightOrder
     property var    hidden: []
     property bool   clock24h: false
+    property string lockClockFormat: "follow"
     property bool   clockSeconds: false
     property bool   clockDate: true
     property string workspaceStyle: "dots"
@@ -63,16 +70,18 @@ Singleton {
     property bool   islandMedia: true
     property string wallpaperDir: "~/Pictures/Wallpapers"
     property string wallpaperTransition: "wave"
-    property bool   lockAvatar: true            // show the profile picture on the lock screen
     property bool   lockShowMedia: true
     property bool   lockShowNotifications: true
-    property int    avatarStamp: 0              // bumped when the picture changes (reloads cached images)
+    property string lockWallpaper: ""           // empty uses the plain lock background; never follows the desktop
+    property string lockStyleMode: "inherit"     // inherit, solid, glass
+    property string lockClockStyle: "digital"     // dots, digital, flip, analog
+    property int    lockBlur: 28
+    property int    lockShade: 48
     // idle (ext-idle-notify via modules/lock/IdleGuard.qml); minutes, 0 = never
     property int    idleLockMin: 10
     property int    idleScreenOffMin: 15
     property int    idleSuspendMin: 0
     property bool   idleRespectInhibitors: true
-    property bool   lockBeforeSleep: true
     property int    idleDimSec: 30              // dim this long before the first of lock / screen off, 0 = never
     property bool   idleBatterySeparate: false  // use the idleBattery* timeouts while on battery
     property int    idleBatteryLockMin: 5
@@ -94,7 +103,6 @@ Singleton {
     // calculator prefs live under "calc" in the same file; the calculator writes angleMode itself
     property var    calc: ({ angleMode: "deg", precision: 12 })
     property bool   calcDirty: false
-    readonly property string avatarPath: home + "/.config/sleek-shell/avatar"
     property bool   loaded: false
 
     readonly property string wallpaperPath: wallpaperDir.replace(/^~(?=\/|$)/, home)
@@ -117,6 +125,8 @@ Singleton {
         switch (k) {
         case "barDensity": return v === "comfortable" ? "comfortable" : "compact"
         case "barIconStyle": return v === "mono" ? "mono" : "color"
+        case "barStyle": return v === "pills" ? "pills" : "full"
+        case "lockClockFormat": return ["follow", "12h", "24h"].indexOf(v) >= 0 ? v : d
         case "leftOrder": return orderList(v, "left")
         case "rightOrder": return orderList(v, "right")
         case "hidden": return Array.isArray(v) ? v.filter(function (id) { return !!widgetCatalog[id] }) : []
@@ -126,7 +136,11 @@ Singleton {
         case "historyMax": return Math.max(10, Math.min(300, Math.round(Number(v) || d)))
         case "wallpaperDir": return typeof v === "string" && v.length > 0 && v.length < 300 ? v : d
         case "wallpaperTransition": return transitions.indexOf(v) >= 0 ? v : d
-        case "avatarStamp": return Math.max(0, Math.round(Number(v) || 0))
+        case "lockWallpaper": return typeof v === "string" && v.length < 1000 && !/[\n\r\"]/.test(v) ? v : d
+        case "lockStyleMode": return ["inherit", "solid", "glass"].indexOf(v) >= 0 ? v : d
+        case "lockClockStyle": return ["dots", "digital", "flip", "analog"].indexOf(v) >= 0 ? v : d
+        case "lockBlur": return Math.max(0, Math.min(48, Math.round(Number(v) || 0)))
+        case "lockShade": return Math.max(0, Math.min(80, Math.round(Number(v) || 0)))
         case "idleLockMin": return idleLockChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
         case "idleScreenOffMin": return idleScreenChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
         case "idleSuspendMin": return idleSuspendChoices.indexOf(Number(v)) >= 0 ? Number(v) : d
@@ -159,32 +173,6 @@ Singleton {
         l.splice(i, 1); l.splice(j, 0, id)
         set(key, l)
     }
-    // ---- profile picture: a private copy in ~/.config/sleek-shell/avatar (the original is never touched)
-    readonly property var imageExts: ["png", "jpg", "jpeg", "webp", "gif", "bmp"]
-    property string avatarMsg: ""
-    property bool hasAvatar: false
-    Process { id: avatarProbe; command: ["test", "-f", st.avatarPath]; onExited: code => st.hasAvatar = code === 0 }
-    function checkAvatar() { if (!avatarProbe.running) avatarProbe.running = true }
-    function setAvatar(file) {
-        var f = String(file || "").trim().replace(/^file:\/\//, "").replace(/^~(?=\/|$)/, home)
-        var ext = (f.split(".").pop() || "").toLowerCase()
-        if (f === "" || imageExts.indexOf(ext) < 0) { avatarMsg = "Choose a .png, .jpg, .webp, .gif or .bmp image"; return }
-        avatarCopy.clearing = false
-        avatarCopy.command = ["sh", "-c", "[ -f \"$1\" ] || exit 3; mkdir -p \"$(dirname \"$2\")\" && cp -f -- \"$1\" \"$2\"", "_", f, avatarPath]
-        avatarCopy.running = true
-    }
-    function clearAvatar() { hasAvatar = false; avatarCopy.clearing = true; avatarCopy.command = ["rm", "-f", avatarPath]; avatarCopy.running = true }
-    Process {
-        id: avatarCopy
-        property bool clearing: false
-        onExited: code => {
-            st.avatarMsg = code === 0 ? "" : (code === 3 ? "That file does not exist" : "Could not save the picture")
-            if (code === 0) st.hasAvatar = !clearing        // known before the image re-loads: no request for a missing file
-            st.set("avatarStamp", st.avatarStamp + 1)
-            st.checkAvatar()
-        }
-    }
-
     function sanitizeCalc(c) {
         c = c && typeof c === "object" && !Array.isArray(c) ? c : {}
         var p = Number(c.precision)
@@ -256,8 +244,6 @@ Singleton {
         }
         function get(): string { var o = {}; for (var k in st.defaults) o[k] = st[k]; return JSON.stringify(o) }
         function reset(): void { st.resetDefaults() }
-        function setAvatar(path: string): void { st.setAvatar(path) }
-        function clearAvatar(): void { st.clearAvatar() }
         function applyDesktop(): void { st.applyDesktop() }
         function setCalc(key: string, value: string): void { var v = value; try { v = JSON.parse(value) } catch (e) {} st.setCalc(key, v) }
         function getCalc(): string { st.refreshCalc(); return JSON.stringify(st.calc) }
@@ -270,6 +256,9 @@ Singleton {
             // merge into what is on disk so keys owned by other tools (calc.angleMode, future keys) survive
             var disk = st.readDisk(), o = {}
             for (var x in disk) o[x] = disk[x]
+            delete o.lockAvatar
+            delete o.avatarStamp
+            delete o.lockBeforeSleep
             o.version = 1
             for (var k in st.defaults) o[k] = st[k]
             if (st.calcDirty) {
@@ -286,7 +275,6 @@ Singleton {
         for (var k in defaults) st[k] = sanitize(k, k in raw ? raw[k] : defaults[k])
         calc = sanitizeCalc(raw.calc)
         loaded = true
-        checkAvatar()
         if (!raw.version) saveTimer.restart()
     }
 }

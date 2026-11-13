@@ -34,7 +34,7 @@ Only choices that depend on you are asked. Press Enter to take the default, or t
 
 | Question | When | Default | Option |
 |---|---|---|---|
-| Web browser | always on Arch | the browser you already use, else Firefox | `--browser firefox\|chromium\|vivaldi\|brave\|zen\|chrome\|epiphany\|none` |
+| Web browser | always on Arch | the browser you already use, else Zen Browser | `--browser firefox\|chromium\|vivaldi\|brave\|zen\|chrome\|epiphany\|none` |
 | Replace the current login screen? | only when another display manager is enabled | no (keep it) | `--greeter auto\|sleek\|keep` |
 | When you are away | always | Balanced, or your current timeouts on a reinstall | `--idle short\|balanced\|long\|never` |
 
@@ -102,6 +102,12 @@ browser, the login shell, and every path in your home it installs, upgrades, rep
 7. **Login shell:** zsh, only when your shell is still bash. A shell you picked yourself is kept;
    `--keep-shell` keeps bash.
 8. **Home folders:** `xdg-user-dirs-update` creates Documents, Downloads, Pictures, ... if they do not exist.
+9. **Boot animation and menu:** on CachyOS the installer sets the Plymouth theme (`lone`), adds the
+   `plymouth`/`plymouth-shutdown` mkinitcpio hooks, sets the `stylish` GRUB theme and `quiet splash`, then rebuilds
+   the initramfs and the GRUB menu. Every system file is backed up first, and both rebuilds run only when something
+   changed. On other Arch systems the current boot is kept unless Plymouth is already installed.
+10. **Auto-login** (only with `--autologin yes`): a `getty@tty1` override logs you in and `~/.zprofile` starts
+    Hyprland; `start-shell` then asks for a PAM-authenticated unlock before the desktop is usable.
 
 ### 5. Your home
 
@@ -109,14 +115,15 @@ browser, the login shell, and every path in your home it installs, upgrades, rep
 |---|---|
 | `~/.config/quickshell/` | Installed. A non-Sleek config is backed up first. |
 | `~/.config/hypr/` | See below. Profile `full` only. |
-| `~/.zshrc` | Installed when you have none, or when it only holds the comments zsh's first-run wizard wrote. Yours is kept. Personal additions can go in `~/.zshrc.local`. |
+| `~/.zshrc`, `~/.zprofile`, `~/.p10k.zsh` | Installed when you have none (or only zsh's first-run comments). Yours is kept; personal additions go in `~/.zshrc.local`. |
+| `~/.powerlevel10k/` | Powerlevel10k cloned from GitHub when missing, so the prompt works out of the box. |
 | `~/.config/rofi/config.rasi`, `themes/rice.rasi` | Installed only if absent. |
 | `~/.config/kitty/kitty.conf`, `theme.conf`, `font.conf` | Installed only if absent. Profile `full` only. |
 | `~/.config/sleek-shell/` | `app-themes.json` only if absent; `settings.json` gets the idle timeouts. All your settings live here. |
 | `~/.local/bin/sleek-calc`, `~/.local/share/applications/sleek-calc.desktop` | Calculator launcher. |
 | `~/.local/lib/rofi/calc.so` | Calculator plugin, built when `make` and a C compiler are present; otherwise script mode is used. |
 | `~/.local/share/fonts/sleek-shell/` | Material Symbols icon font. |
-| `~/Pictures/Wallpapers/sleek-shell-astronaut.png` | Default wallpaper, unless a file with that name exists. |
+| `~/Pictures/Wallpapers/` | The full free/open-source collection (200+ images). Existing files are never overwritten, so your own wallpapers are kept. |
 | `~/.local/share/sleek-shell/` | `uninstall.sh`, docs, greeter files, manifest, report. |
 
 What happens to `~/.config/hypr`:
@@ -138,8 +145,9 @@ The installed config is checked with `Hyprland --verify-config`. It also:
 
 At the end the installer checks what a working desktop needs after the reboot: every package installed,
 Hyprland and Quickshell present, the PipeWire, NetworkManager, Bluetooth and power services enabled, the Nerd
-Font installed, the NVIDIA options and suspend services, the login shell, greetd running the Sleek Shell greeter
-(when chosen) and the Hyprland config. It writes:
+Font installed, Cava/Thunar/Resources/nwg-displays present, the NVIDIA options and suspend services, the login
+shell, greetd running the Sleek Shell greeter (when chosen), the Hyprland config, and — when it configured the
+boot — the Plymouth theme and the initramfs hooks. It writes:
 
 | File | Contents |
 |---|---|
@@ -176,6 +184,7 @@ skipped.
 | `--profile full\|shell` | `shell`: only the Quickshell shell; your Hyprland config, kitty and zsh are not touched |
 | `--replace-hypr` | Replace an existing non-Sleek `~/.config/hypr` (backed up first) |
 | `--keep-shell` | Do not change the login shell |
+| `--autologin yes\|no` | Explicitly enable TTY1 auto-login; Hyprland starts from the shipped `.zprofile` and Quickshell locks it before the desktop is usable. This bypasses a display manager, so use it only on a machine you control. |
 | `--user-only`, `--skip-system` | No `sudo`: install into your home only (the old behaviour) |
 | `--ignore-deps` | With `--user-only` or on other distributions: install the files even when required programs are missing |
 | `--install-deps`, `--with-optional` | Other distributions: install the missing packages after asking (see [DISTROS.md](DISTROS.md)) |
@@ -192,7 +201,11 @@ See [DISTROS.md](DISTROS.md).
 ## Starting it
 
 After the reboot, log in on the Sleek Shell greeter (or your display manager, choosing the Hyprland session).
+If you chose `--autologin yes`, TTY1 starts Hyprland directly and presents the lock screen instead; this is intentionally opt-in.
 Without a display manager, log in on the console and run `start-hyprland`.
+
+The first boot also shows the Plymouth animation and the themed GRUB menu configured in step 9. If you installed
+on a system without GRUB or Plymouth, your current boot experience is unchanged.
 
 If you reinstall from inside Hyprland, restart the shell instead:
 ```sh

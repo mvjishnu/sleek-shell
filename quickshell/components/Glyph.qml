@@ -23,7 +23,7 @@ Item {
     property int weight: 500       // Material Symbols wght axis
     property bool animateFill: true
 
-    readonly property var entry: name !== "" ? Theme.sym[name] : undefined
+    readonly property var entry: name !== "" ? Theme.sym[name] : Theme.symbolForCode(code)
     readonly property bool useSymbols: !!entry && Theme.hasSymbols
     readonly property string glyphText: useSymbols ? String.fromCodePoint(entry[0])
         : (entry ? Theme.glyph(entry[1]) : Theme.glyph(code))

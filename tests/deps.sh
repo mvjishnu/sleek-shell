@@ -94,9 +94,9 @@ check "polkit: none installed" hasnt polkit:agent
 printf '#!/bin/sh\n' > "$R/usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1"; chmod +x "$R/usr/lib/x86_64-linux-gnu/libexec/polkit-kde-authentication-agent-1"
 check "polkit: Debian multiarch polkit-kde found" has polkit:agent
 mkdir -p "$R/usr/lib/hyprpolkitagent"; printf '#!/bin/sh\n' > "$R/usr/lib/hyprpolkitagent/hyprpolkitagent"; chmod +x "$R/usr/lib/hyprpolkitagent/hyprpolkitagent"
-check "polkit-agent.sh prefers hyprpolkitagent" test "$(SLEEK_SYS_ROOT="$R" "$REPO/hypr/scripts/polkit-agent.sh" --find)" = "$R/usr/lib/hyprpolkitagent/hyprpolkitagent"
-check "polkit-agent.sh --find with no agent fails" sh -c "! SLEEK_SYS_ROOT='$TMPROOT/sys' '$REPO/hypr/scripts/polkit-agent.sh' --find"
-check "autostart runs polkit-agent.sh" grep -q 'polkit-agent.sh' "$REPO/hypr/modules/autostart.lua"
+check "polkit-agent prefers hyprpolkitagent" test "$(SLEEK_SYS_ROOT="$R" "$REPO/hypr/scripts/polkit-agent" --find)" = "$R/usr/lib/hyprpolkitagent/hyprpolkitagent"
+check "polkit-agent --find with no agent fails" sh -c "! SLEEK_SYS_ROOT='$TMPROOT/sys' '$REPO/hypr/scripts/polkit-agent' --find"
+check "autostart runs polkit-agent" grep -q 'polkit-agent' "$REPO/hypr/modules/autostart.lua"
 
 # service hints only print commands
 if [ -d /run/systemd/system ]; then

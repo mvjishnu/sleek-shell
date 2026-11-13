@@ -32,6 +32,10 @@ Noto fonts with emoji, Mesa plus Vulkan and video drivers for the detected GPUs,
 installed, and `base-devel` only when something comes from the AUR. PulseAudio is removed when present, because
 PipeWire replaces it.
 
+**Boot packages** are added on CachyOS: `plymouth`, `cachyos-plymouth-theme`,
+`cachyos-plymouth-bootanimation` and `cachyos-grub-theme`. On other Arch systems Plymouth is only touched when it is
+already installed, so the current boot menu is kept. See [CONFIG.md](CONFIG.md#boot-etc).
+
 **How the names were checked:**
 - **Arch:** every name resolves with `pacman -Sp` against the official repositories (verified on CachyOS).
 - **Other columns:** taken from each distribution's package index, not installed. Treat them as simulated
@@ -52,8 +56,8 @@ packages: it only printed a command, and rows marked _not checked_ were missing 
 | fontconfig | icon font registration | required | `fontconfig` | `fontconfig` | `fontconfig` | `fontconfig` | checked |
 | xdg-utils | default apps | required | `xdg-utils` | `xdg-utils` | `xdg-utils` | `xdg-utils` | checked |
 | nerd-font | bar, kitty, rofi and greeter glyphs | required | `ttf-jetbrains-mono-nerd` | _not packaged_ | _not packaged_ | _not packaged_ | checked |
-| kitty | default terminal (SUPER+T; override with SLEEK_TERMINAL) | recommended | `kitty` | `kitty` | `kitty` | `kitty` | checked |
-| file-manager | file manager for SUPER+E (any; Dolphin is suggested when you have none) | recommended | `dolphin` | `dolphin` | `dolphin` | `dolphin` | **not checked** |
+| kitty | default terminal (SUPER+T) | recommended | `kitty` | `kitty` | `kitty` | `kitty` | checked |
+| file-manager | file manager for SUPER+E (Thunar is the reference, with `thunar-volman` and `gvfs`) | recommended | `thunar` | `thunar` | `thunar` | `thunar` | **not checked** |
 | portal-hyprland | screen sharing and screenshots for apps (XDG portal) | recommended | `xdg-desktop-portal-hyprland` | `xdg-desktop-portal-hyprland` (COPR sdegler/hyprland) | `xdg-desktop-portal-hyprland` (Debian 13: trixie-backports) | `xdg-desktop-portal-hyprland` | **not checked** |
 | portal-gtk | file chooser and settings portal | recommended | `xdg-desktop-portal-gtk` | `xdg-desktop-portal-gtk` | `xdg-desktop-portal-gtk` | `xdg-desktop-portal-gtk` | **not checked** |
 | polkit-agent | password prompts when an app needs admin rights | recommended | `hyprpolkitagent` | `polkit-kde` | `polkit-kde-agent-1` | `hyprpolkitagent` | **not checked** |
@@ -82,6 +86,8 @@ packages: it only printed a command, and rows marked _not checked_ were missing 
 | kwriteconfig6 | Qt/KDE font/icon settings | optional | `kconfig` | `kf6-kconfig` | `libkf6config-bin` | `kf6-kconfig` | checked |
 | gtk-launch | open default browser/file manager | optional | `gtk3` | `gtk3` | `libgtk-3-bin` | `gtk3-tools` | checked |
 | nwg-displays | monitor layout editor | optional | `nwg-displays` | _not packaged_ | `nwg-displays` | `nwg-displays` | checked, names changed |
+| cava | audio visualiser in the media panel (sleeps when idle) | optional | `cava` | `cava` | `cava` | `cava` | **not checked** |
+| resources | system monitor (CPU, memory, GPU, disks, processes) | optional | `resources` | _not packaged_ | `resources` | `resources` | **not checked** |
 | imagemagick | icon theme previews | optional | `imagemagick` | `ImageMagick` | `imagemagick` | `ImageMagick` | checked |
 | qt-imageformats | WebP wallpaper previews | optional | `qt6-imageformats` | `qt6-qtimageformats` | `qt6-image-formats-plugins` | `qt6-imageformats` | **not checked** |
 | bsdtar | unpacking downloaded fonts, icons and cursors | optional | `libarchive` | `bsdtar` | `libarchive-tools` | `bsdtar` | **not checked** |
@@ -113,7 +119,7 @@ That daemon would take notifications away from the shell.
 - `quickshell`
 - `awww-daemon`
 - `wl-paste --watch cliphist store` (text and images)
-- `hypr/scripts/polkit-agent.sh`: starts the first polkit agent it finds (hyprpolkitagent, polkit-kde,
+- `hypr/scripts/polkit-agent`: starts the first polkit agent it finds (hyprpolkitagent, polkit-kde,
   polkit-gnome, mate-polkit, lxqt or lxpolkit). It does nothing if one is already running, for example
   under a full desktop session.
 

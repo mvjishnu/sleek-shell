@@ -53,9 +53,10 @@ That is zsh's first-run wizard: `~/.zshrc` is missing. Run `./install.sh` again 
 ## Shortcuts do nothing
 - `SUPER+I`, `SUPER+Tab`, `ALT+Tab`, `SUPER+K` and `SUPER+H` are Quickshell global shortcuts. They work only while the shell runs.
 - Check Settings → Keyboard for a disabled or rebound shortcut. `SUPER+K` lists what is active.
-- `SUPER+T`, `SUPER+E` and `SUPER+B` launch `$SLEEK_TERMINAL`, `$SLEEK_FILE_MANAGER` and `$SLEEK_BROWSER`, falling back to
-  kitty and your default apps. Set a default with `xdg-mime default <app>.desktop inode/directory`, or with
-  `xdg-settings set default-web-browser <app>.desktop`.
+- `SUPER+T`, `SUPER+E` and `SUPER+B` launch the programs set at the top of `hypr/modules/keybinds.lua`
+  (kitty, Thunar and Zen Browser by default). Change them there, or rebind in Settings → Keyboard. To change
+  your default browser or folder handler instead, use `xdg-settings set default-web-browser <app>.desktop`
+  or `xdg-mime default <app>.desktop inode/directory`.
 
 ## Wallpaper
 `SUPER+W` shows a notification when it cannot work:

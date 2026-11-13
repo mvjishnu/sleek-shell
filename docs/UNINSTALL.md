@@ -28,17 +28,22 @@ Kept unless you pass `--purge`:
 Never removed:
 - your `monitors.lua`, `custom_binds.lua` and `user.lua`;
 - the backup folder;
-- fonts, icon themes or cursors you downloaded in Settings into `~/.local/share/fonts` or `~/.local/share/icons`.
+- fonts, icon themes or cursors you downloaded in Settings into `~/.local/share/fonts` or `~/.local/share/icons`;
+- `~/Pictures/Wallpapers/` — the shipped collection and your own wallpapers stay;
+- `~/.powerlevel10k/` — the cloned prompt can be shared with other shells;
+- `~/.zshrc.local`, where your personal shell additions live.
 
 Also left as they are: the colour blocks that app theming wrote into `~/.config/gtk-3.0/gtk.css`, `gtk-4.0/gtk.css`,
 `~/.config/kdeglobals` and `~/.config/micro/colorschemes/rice.micro`. Delete those blocks by hand if you want them gone.
 
 ## System changes
 
-On Arch, `install.sh` also installed packages, enabled services, wrote NVIDIA options and possibly changed your
-login shell and display manager. The uninstaller does not undo these (it never uses `sudo`), but it prints the list
-from `~/.local/share/sleek-shell/system-changes.log`, which also shows how to undo each one. Packages you no longer
-want can be removed with `sudo pacman -Rns PACKAGE`.
+On Arch, `install.sh` also installed packages, enabled services, wrote NVIDIA options, configured the boot
+animation (Plymouth theme, mkinitcpio hooks, GRUB theme and `quiet splash`), and possibly changed your login shell
+and display manager. The uninstaller does not undo these (it never uses `sudo`), but it prints the list from
+`~/.local/share/sleek-shell/system-changes.log`, which also shows how to undo each one. System files that were
+edited were backed up under `~/.local/share/sleek-shell-backups/<date>/system/`; packages you no longer want can
+be removed with `sudo pacman -Rns PACKAGE`.
 
 ## The login greeter
 

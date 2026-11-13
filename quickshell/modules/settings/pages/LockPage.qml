@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.UPower
 import qs.services
 import qs.components
@@ -12,145 +11,147 @@ import "../../lock/idle.js" as Idle
 SettingsPage {
     id: lp
     title: "Lock screen"
-    subtitle: "Your profile picture and what the lock screen shows. The picture is copied into ~/.config/sleek-shell/; the original file is never changed."
+    subtitle: "Choose the lock screen wallpaper, style and idle behavior."
     readonly property string home: Quickshell.env("HOME")
     readonly property string acTag: Settings.idleBatterySeparate ? " (plugged in)" : ""
     property string folder: home + "/Pictures"
-    property string realName: Quickshell.env("USER") || ""
-    FileView {
-        path: "/etc/passwd"; blockLoading: true; printErrors: false
-        onLoaded: {
-            var u = Quickshell.env("USER"), l = text().split("\n")
-            for (var i = 0; i < l.length; ++i) { var f = l[i].split(":"); if (f[0] === u && f[4]) { lp.realName = f[4].split(",")[0]; break } }
-        }
+    readonly property string effectiveLockStyle: Settings.lockStyleMode === "inherit" ? Theme.styleMode : Settings.lockStyleMode
+    FolderListModel {
+        id: lockImages
+        folder: "file://" + Settings.wallpaperPath
+        nameFilters: ["*.png", "*.jpg", "*.jpeg", "*.webp", "*.bmp", "*.PNG", "*.JPG", "*.JPEG", "*.WEBP"]
+        showDirs: false
+        sortField: FolderListModel.Name
     }
-    Process { id: preview; command: ["quickshell", "ipc", "call", "lock", "test"] }
 
     SettingsSection {
-        title: "Profile picture"
-        subtitle: "Shown in a circle on the lock screen (and on the login screen after `sudo ~/.local/share/sleek-shell/greeter/install.sh --sync`)."
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 18
-            Avatar { id: big; size: 96; name: lp.realName; showPicture: true }
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 6
-                Text { text: lp.realName; color: Theme.text; font.family: Theme.font; font.pixelSize: 18; font.weight: Font.DemiBold }
-                Text { text: big.hasPicture ? "Custom picture" : "No picture: your initial is shown"; color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontMd }
-                RowLayout {
-                    spacing: 8
-                    UiBtn { label: "Remove picture"; code: Theme.ic.trash; danger: true; enabled: big.hasPicture; onClicked: Settings.clearAvatar() }
-                    UiBtn { label: "Preview lock screen"; code: Theme.ic.lock; onClicked: { Ui.closeSettings(); previewDelay.restart() } }
-                }
-            }
+        title: "Lock screen appearance"
+        subtitle: "Choose a wallpaper and surface style. The clock style is set below."
+        SectionLabel { title: "Surface style"; subtitle: "Match the desktop or choose Solid / Glass just for the lock screen." }
+        Segment {
+            model: [
+                { id: "inherit", label: "Match desktop", code: Theme.ic.monitor },
+                { id: "solid", label: "Solid", code: Theme.ic.palette },
+                { id: "glass", label: "Glass", code: Theme.ic.drop }
+            ]
+            current: Settings.lockStyleMode
+            onPicked: optionId => Settings.set("lockStyleMode", optionId)
         }
-        Timer { id: previewDelay; interval: 350; onTriggered: preview.running = true }
-        Text {
-            visible: Settings.avatarMsg !== ""
-            Layout.fillWidth: true
-            text: Settings.avatarMsg
-            color: Theme.red
-            font.family: Theme.font; font.pixelSize: Theme.fontMd
+        LabeledSlider {
+            label: "Wallpaper blur"
+            enabled: lp.effectiveLockStyle === "glass"
+            valueText: enabled ? Settings.lockBlur + " px" : "Off in Solid"
+            code: Theme.ic.drop
+            accent: Theme.purple
+            from: 0
+            value: Settings.lockBlur * 100 / 48
+            onMoved: v => Settings.set("lockBlur", Math.round(v * 48 / 100))
+            onReset: Settings.set("lockBlur", Settings.defaults.lockBlur)
+        }
+        LabeledSlider {
+            label: "Wallpaper shade"
+            valueText: Settings.lockShade + "%"
+            code: Theme.ic.sun
+            accent: Theme.accent
+            from: 0
+            value: Settings.lockShade * 100 / 80
+            onMoved: v => Settings.set("lockShade", Math.round(v * 80 / 100))
+            onReset: Settings.set("lockShade", Settings.defaults.lockShade)
         }
         Divider {}
-        SectionLabel { title: "Choose a picture"; subtitle: "Click an image to use it. Square images look best; others are cropped to the centre." }
-        Flow {
-            Layout.fillWidth: true
-            spacing: 6
-            Repeater {
-                model: [{ l: "Pictures", p: lp.home + "/Pictures" }, { l: "Wallpapers", p: lp.home + "/Pictures/Wallpapers" },
-                        { l: "Screenshots", p: lp.home + "/Pictures/Screenshots" }, { l: "Downloads", p: lp.home + "/Downloads" }]
-                delegate: UiBtn { required property var modelData; label: modelData.l; selected: lp.folder === modelData.p; onClicked: lp.folder = modelData.p }
-            }
-        }
-        FolderListModel {
-            id: imgs
-            folder: "file://" + lp.folder
-            nameFilters: ["*.png", "*.jpg", "*.jpeg", "*.webp", "*.gif", "*.bmp", "*.PNG", "*.JPG", "*.JPEG", "*.WEBP"]
-            showDirs: false
-            sortField: FolderListModel.Time
-            // ~/Pictures often only holds sub-folders: fall through to the first folder that has images
-            property bool autoPicked: false
-            onStatusChanged: if (status === FolderListModel.Ready && count === 0 && !autoPicked) {
-                autoPicked = true
-                var order = [lp.home + "/Pictures/Wallpapers", lp.home + "/Pictures/Screenshots", lp.home + "/Downloads"]
-                lp.folder = order[0]
-            }
-        }
-        GridView {
-            id: grid
-            Layout.fillWidth: true
-            Layout.preferredHeight: imgs.count === 0 ? 0 : Math.min(Math.ceil(imgs.count / Math.max(1, Math.floor(width / cellWidth))) * cellHeight, 2 * cellHeight + 4)
-            cellWidth: 92; cellHeight: 92
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            model: imgs
-            delegate: Item {
-                id: cell
-                required property string filePath
-                width: grid.cellWidth; height: grid.cellHeight
-                Rectangle {
-                    anchors { fill: parent; margins: 5 }
-                    radius: Theme.controlRadius
-                    color: Theme.surfaceHi
-                    clip: true
-                    border.width: cma.containsMouse ? 2 : 0
-                    border.color: Theme.accent
-                    Image {
-                        anchors { fill: parent; margins: parent.border.width }
-                        source: "file://" + cell.filePath
-                        sourceSize: Qt.size(160, 160)
-                        fillMode: Image.PreserveAspectCrop
-                        asynchronous: true
-                    }
-                    scale: cma.pressed ? 0.95 : 1
-                    Behavior on scale { enabled: Theme.animations; NumberAnimation { duration: Theme.durFast } }
-                }
-                MouseArea { id: cma; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Settings.setAvatar(cell.filePath) }
-            }
-        }
-        Text {
-            visible: imgs.status === FolderListModel.Ready && imgs.count === 0
-            text: "No images in " + lp.folder.replace(lp.home, "~")
-            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontMd
-        }
+        SectionLabel { title: "Lock screen wallpaper"; subtitle: "Saved separately from the desktop wallpaper. Empty selection uses a plain background." }
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
-            UiField { id: pathField; Layout.fillWidth: true; code: Theme.ic.image; placeholder: "…or type a path, e.g. ~/Pictures/me.jpg"; onAccepted: Settings.setAvatar(text) }
-            UiBtn { label: "Use this file"; selected: true; enabled: pathField.text.trim() !== ""; onClicked: Settings.setAvatar(pathField.text) }
+            UiField {
+                id: lockWallpaperField
+                Layout.fillWidth: true
+                code: Theme.ic.image
+                text: Settings.lockWallpaper
+                placeholder: "~/Pictures/wallpaper.jpg"
+                onAccepted: Settings.set("lockWallpaper", text.trim())
+            }
+            UiBtn { label: "Clear selection"; code: Theme.ic.close; onClicked: { Settings.set("lockWallpaper", ""); lockWallpaperField.text = "" } }
+            UiBtn { label: "Apply path"; selected: true; onClicked: Settings.set("lockWallpaper", lockWallpaperField.text.trim()) }
+        }
+        GridView {
+            id: lockWallpaperGrid
+            Layout.fillWidth: true
+            Layout.preferredHeight: lockImages.count === 0 ? 0 : Math.min(Math.ceil(lockImages.count / Math.max(1, Math.floor(width / cellWidth))) * cellHeight, 2 * cellHeight + 4)
+            cellWidth: 148; cellHeight: 94
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            model: lockImages
+            delegate: Item {
+                id: lockWallpaperCell
+                required property string filePath
+                width: lockWallpaperGrid.cellWidth; height: lockWallpaperGrid.cellHeight
+                readonly property bool selected: Settings.lockWallpaper === filePath
+                Rectangle {
+                    anchors { fill: parent; margins: 4 }
+                    radius: Theme.controlRadius
+                    clip: true
+                    color: Theme.surfaceHi
+                    border.width: lockWallpaperCell.selected ? 2 : 0
+                    border.color: Theme.accent
+                    Image {
+                        anchors.fill: parent
+                        source: "file://" + lockWallpaperCell.filePath
+                        sourceSize: Qt.size(280, 180)
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Settings.set("lockWallpaper", lockWallpaperCell.filePath)
+                }
+            }
+        }
+        Text {
+            visible: lockImages.status === FolderListModel.Ready && lockImages.count === 0
+            text: "No images found in " + Settings.wallpaperDir
+            color: Theme.dim
+            font.family: Theme.font; font.pixelSize: Theme.fontMd
         }
     }
 
     SettingsSection {
-        title: "What the lock screen shows"
-        subtitle: "Your windows are never visible on the lock screen; these control the extras."
+        title: "Lock screen clock"
+        subtitle: "The lock screen is intentionally minimal: a large clock, the date and nothing else."
         SettingRow {
-            title: "Profile picture"
-            subtitle: "Off shows your initial instead"
-            Toggle { checked: Settings.lockAvatar; accessibleName: "Show profile picture"; onToggled: Settings.set("lockAvatar", !Settings.lockAvatar) }
-        }
-        SettingRow {
-            title: "Notification count"
-            subtitle: "“Locked · 3 notifications” (never the contents)"
-            Toggle { checked: Settings.lockShowNotifications; accessibleName: "Show notification count"; onToggled: Settings.set("lockShowNotifications", !Settings.lockShowNotifications) }
-        }
-        SettingRow {
-            title: "Media controls"
-            subtitle: "Now playing with previous / play-pause / next"
-            Toggle { checked: Settings.lockShowMedia; accessibleName: "Show media controls"; onToggled: Settings.set("lockShowMedia", !Settings.lockShowMedia) }
+            title: "Clock style"
+            subtitle: "Nothing-style dot matrix, large digital, split cards or a minimal analog dial. The lock screen is static — no entry or tick animations."
+            Segment {
+                width: 330
+                model: [
+                    { id: "dots", label: "Dots" },
+                    { id: "digital", label: "Digital" },
+                    { id: "flip", label: "Flip" },
+                    { id: "analog", label: "Analog" }
+                ]
+                current: Settings.lockClockStyle
+                onPicked: optionId => Settings.set("lockClockStyle", optionId)
+            }
         }
         SettingRow {
             title: "Clock format"
-            subtitle: "Follows Settings › Bar & widgets (" + (Settings.clock24h ? "24-hour" : "12-hour") + ")"
-            UiBtn { label: "Change"; onClicked: Ui.settingsPage = "bar" }
+            subtitle: Settings.lockClockFormat === "follow" ? "Follow Bar & widgets, or choose a lock screen format." : "The 12-hour format includes AM/PM. This does not change the desktop clock."
+            Segment {
+                width: 310
+                model: [{ id: "12h", label: "12-hour · AM/PM" }, { id: "24h", label: "24-hour" }, { id: "follow", label: "Follow bar" }]
+                current: Settings.lockClockFormat
+                onPicked: optionId => Settings.set("lockClockFormat", optionId)
+            }
         }
     }
 
     SettingsSection {
         title: "Idle & sleep"
         subtitle: "Timers start after your last keyboard, mouse or touchpad input. Changes apply immediately."
+        SectionLabel { title: "When plugged in"; subtitle: "These timeouts apply on AC power, and whenever separate battery timeouts are disabled." }
         SectionLabel { title: "Lock the screen after" + lp.acTag; subtitle: "Uses the same Sleek Shell lock screen as Super+L" }
         Segment {
             model: Settings.idleLockChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
@@ -163,7 +164,7 @@ SettingsPage {
             current: String(Settings.idleScreenOffMin)
             onPicked: optionId => Settings.set("idleScreenOffMin", Number(optionId))
         }
-        SectionLabel { title: "Suspend after" + lp.acTag; subtitle: "The screen is locked first. Never suspends desktops by default, so downloads and long tasks are not interrupted." }
+        SectionLabel { title: "Sleep (suspend) after" + lp.acTag; subtitle: "Locks first, then suspends the computer. Set to Never to keep it awake." }
         Segment {
             model: Settings.idleSuspendChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
             current: String(Settings.idleSuspendMin)
@@ -186,7 +187,7 @@ SettingsPage {
         Divider {}
         SettingRow {
             visible: Sys.hasBattery || Settings.idleBatterySeparate
-            title: "Different timeouts on battery"
+            title: "Use separate timeouts on battery"
             subtitle: UPower.onBattery ? "Running on battery now" : "Plugged in now: the timeouts above apply"
             Toggle { checked: Settings.idleBatterySeparate; accessibleName: "Different timeouts on battery"; onToggled: Settings.set("idleBatterySeparate", !Settings.idleBatterySeparate) }
         }
@@ -194,6 +195,7 @@ SettingsPage {
             Layout.fillWidth: true
             visible: Settings.idleBatterySeparate
             spacing: 8
+            SectionLabel { title: "When on battery"; subtitle: "These values apply while unplugged." }
             SectionLabel { title: "On battery: lock after" }
             Segment {
                 model: Settings.idleLockChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
@@ -206,7 +208,7 @@ SettingsPage {
                 current: String(Settings.idleBatteryScreenOffMin)
                 onPicked: optionId => Settings.set("idleBatteryScreenOffMin", Number(optionId))
             }
-            SectionLabel { title: "On battery: suspend after" }
+            SectionLabel { title: "On battery: sleep (suspend) after" }
             Segment {
                 model: Settings.idleSuspendChoices.map(function (m) { return { id: String(m), label: Idle.minLabel(m), code: 0 } })
                 current: String(Settings.idleBatterySuspendMin)
@@ -221,8 +223,7 @@ SettingsPage {
         }
         SettingRow {
             title: "Lock before sleep"
-            subtitle: "Locks before suspend from any source (lid, power button, menu), so the desktop is never shown on wake"
-            Toggle { checked: Settings.lockBeforeSleep; accessibleName: "Lock before sleep"; onToggled: Settings.set("lockBeforeSleep", !Settings.lockBeforeSleep) }
+            subtitle: "Always locks securely before suspend, including when the laptop lid is closed."
         }
     }
 }

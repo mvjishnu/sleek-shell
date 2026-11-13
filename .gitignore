@@ -32,3 +32,10 @@ calc/sleekcalc.so
 # Local installer or test output
 /tmp/
 /out/
+
+# Never publish workstation data or unrelated checkouts.
+/Projects/
+/MyData/
+
+# Screenshots are not published.
+/screenshots/

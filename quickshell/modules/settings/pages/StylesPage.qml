@@ -38,7 +38,7 @@ SettingsPage {
         Layout.preferredWidth: 1
         radius: Theme.controlRadius
         color: chosen ? Qt.alpha(Theme.accent, 0.16) : (hovered ? Theme.surfaceHi : Qt.alpha(Theme.text, 0.035))
-        border.width: chosen ? 1.5 : 1
+        border.width: Theme.shellBorders ? (chosen ? 1.5 : 1) : 0
         border.color: chosen ? Theme.accent : Qt.alpha(Theme.text, 0.08)
     }
     component JobState: RowLayout {

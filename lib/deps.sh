@@ -22,8 +22,8 @@ rofi|cmd:rofi|required|rofi|rofi|rofi|rofi|launcher and calculator (2.0+ for Way
 fontconfig|cmd:fc-cache|required|fontconfig|fontconfig|fontconfig|fontconfig|icon font registration
 xdg-utils|cmd:xdg-open|required|xdg-utils|xdg-utils|xdg-utils|xdg-utils|default apps
 nerd-font|font:JetBrainsMono Nerd Font|required|ttf-jetbrains-mono-nerd|-|-|-|bar, kitty, rofi and greeter glyphs
-kitty|cmd:kitty|recommended|kitty|kitty|kitty|kitty|default terminal (SUPER+T; override with SLEEK_TERMINAL)
-file-manager|cmd:dolphin/nautilus/thunar/nemo/caja/pcmanfm-qt/pcmanfm|recommended|dolphin|dolphin|dolphin|dolphin|file manager for SUPER+E (any; Dolphin is suggested when you have none)
+kitty|cmd:kitty|recommended|kitty|kitty|kitty|kitty|default terminal (SUPER+T)
+file-manager|cmd:dolphin/nautilus/thunar/nemo/caja/pcmanfm-qt/pcmanfm|recommended|thunar|thunar|thunar|thunar|file manager for SUPER+E (Thunar is the reference, with thunar-volman and gvfs)
 portal-hyprland|portal:hyprland|recommended|xdg-desktop-portal-hyprland|xdg-desktop-portal-hyprland (COPR sdegler/hyprland)|xdg-desktop-portal-hyprland (Debian 13: trixie-backports)|xdg-desktop-portal-hyprland|screen sharing and screenshots for apps (XDG portal)
 portal-gtk|portal:gtk|recommended|xdg-desktop-portal-gtk|xdg-desktop-portal-gtk|xdg-desktop-portal-gtk|xdg-desktop-portal-gtk|file chooser and settings portal
 polkit-agent|polkit:agent|recommended|hyprpolkitagent|polkit-kde|polkit-kde-agent-1|hyprpolkitagent|password prompts when an app needs admin rights
@@ -99,7 +99,7 @@ _dep_has() {
             done < <(_dep_icon_dirs)
             return 1 ;;
         portal) _dep_any_file "$R/usr/share/xdg-desktop-portal/portals/$arg.portal" ;;
-        polkit) SLEEK_SYS_ROOT="$R" "$_DEPS_DIR/../hypr/scripts/polkit-agent.sh" --find >/dev/null 2>&1 ;;
+        polkit) SLEEK_SYS_ROOT="$R" "$_DEPS_DIR/../hypr/scripts/polkit-agent" --find >/dev/null 2>&1 ;;
         qtplugin) _dep_any_file "$R/usr/lib/qt6/plugins/$arg" "$R/usr/lib64/qt6/plugins/$arg" "$R/usr/lib/*/qt6/plugins/$arg" ;;
         *) echo "deps: bad check '$spec'" >&2; return 1 ;;
     esac

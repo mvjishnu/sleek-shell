@@ -13,5 +13,6 @@ Scope {
         function move(n: int): void { Wm.moveActiveNth(n) }
         function next(): void { Wm.stepWs("", 1) }
         function prev(): void { Wm.stepWs("", -1) }
+        function step(d: int): void { Wm.stepWs("", d) }
     }
 }

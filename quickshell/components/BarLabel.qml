@@ -9,17 +9,19 @@ Item {
     property color color: Theme.text
     property int size: Theme.barLabelSize
     property int weight: Font.DemiBold
+    property string family: Theme.font
     property real baselineOverride: -1
     readonly property real capHeight: cap.tightBoundingRect.height
-    readonly property real dpr: Screen.devicePixelRatio > 0 ? Screen.devicePixelRatio : 1
-    readonly property real textBaseline: Math.round((height + capHeight) / 2 * dpr) / dpr   // on the physical grid
+    readonly property real capTop: cap.tightBoundingRect.y
+    // Centre the glyph ink (tight bounds, not the line box) on the pill.
+    readonly property real textBaseline: height / 2 - capTop - capHeight / 2
     implicitWidth: Math.ceil(t.implicitWidth)
     implicitHeight: Theme.islandHeight
     Text {
         id: t
         text: bl.text
         color: bl.color
-        font.family: Theme.font
+        font.family: bl.family
         font.pixelSize: bl.size
         font.weight: bl.weight
         font.features: { "tnum": 1 }

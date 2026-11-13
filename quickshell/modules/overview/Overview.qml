@@ -6,10 +6,7 @@ import Quickshell.Io
 import qs.services
 import qs.components
 
-// SUPER + TAB: workspace overview. One row per monitor (real Hyprland monitors/workspaces),
-// window thumbnails placed where the windows really are. Drag a window onto another workspace
-// card (same or other monitor) or onto "+" to move the REAL window; the result is verified
-// against Hyprland afterwards.
+// SUPER + TAB: compact, monitor-grouped workspace strip with app icons and drag/drop.
 Scope {
     id: ov
 
@@ -23,6 +20,7 @@ Scope {
     // drag state
     property bool dragging: false
     property var dragWin: null
+    property var moveMenuWin: null
     property string hoverKey: ""
     property var cards: ({})
     property var pending: null
@@ -41,20 +39,38 @@ Scope {
             var sc = o.scale || 1, w = o.width || m.width, h = o.height || m.height
             if ((o.transform || 0) % 2 === 1) { var tmp = w; w = h; h = tmp }
             var act = Wm.activeWsId(m.name), ws = []
-            var ids = Wm.wsIds(m.name)
+            var ids = Wm.wsIds(m.name), occupied = []
             for (var j = 0; j < ids.length; ++j) {
                 var id = ids[j]
-                ws.push({ id: id, active: id === act, wins: wins.filter(function (x) { return x.wsId === id && x.mon === m.name && !x.minimized && !x.special }) })
+                var hasWindows = wins.some(function (x) { return x.wsId === id && x.mon === m.name && !x.special })
+                if (id === act || hasWindows) occupied.push(id)
             }
+            // Keep the active/occupied workspaces and expose exactly one empty
+            // destination so the strip can grow naturally as workspaces are used.
+            var extraId = -1
+            for (var k = 0; k < ids.length; ++k) {
+                if (occupied.indexOf(ids[k]) < 0) { extraId = ids[k]; break }
+            }
+            for (var j = 0; j < occupied.length; ++j) {
+                var id = occupied[j]
+                ws.push({ id: id, monitor: m.name, active: id === act, extra: false,
+                          wins: wins.filter(function (x) { return x.wsId === id && x.mon === m.name && !x.minimized && !x.special }) })
+            }
+            if (extraId >= 0) ws.push({ id: extraId, monitor: m.name, active: false, extra: true, wins: [] })
+            else ws.push({ id: "new", monitor: m.name, active: false, extra: true, wins: [] })
             res.push({ name: m.name, lw: w / sc, lh: h / sc, mx: o.x || 0, my: o.y || 0, focused: m.name === fm,
                        desc: Math.round(w) + "×" + Math.round(h) + " @ " + (Math.round((o.refreshRate || 0) * 10) / 10) + " Hz", ws: ws })
         }
         model = res
+        if (model.length) {
+            selMon = Math.max(0, Math.min(model.length - 1, selMon))
+            selIdx = Math.max(0, Math.min(model[selMon].ws.length - 1, selIdx))
+        }
     }
 
     function show() {
         screenObj = screenFor(Wm.focusedMon())
-        status = ""; dragging = false; hoverKey = ""
+        status = ""; dragging = false; moveMenuWin = null; hoverKey = ""
         Wm.refreshAll()
         build()
         // start on the active workspace of the focused monitor
@@ -68,7 +84,7 @@ Scope {
     }
     function hide() {
         if (!open) return
-        open = false; dragging = false
+        open = false; dragging = false; moveMenuWin = null
         Wm.watchers = Math.max(0, Wm.watchers - 1)
     }
     function toggle() { open ? hide() : show() }
@@ -124,14 +140,18 @@ Scope {
 
     function onKey(e) {
         var m = model[selMon]
-        if (e.key === Qt.Key_Escape) { dragging ? cancelDrag() : hide() }
+        if (e.key === Qt.Key_Escape) { if (moveMenuWin) moveMenuWin = null; else if (dragging) cancelDrag(); else hide() }
         else if (!m) return
-        else if (e.key === Qt.Key_Right || e.key === Qt.Key_Tab) selIdx = Math.min(m.ws.length, selIdx + 1)
+        else if (e.key === Qt.Key_Right || e.key === Qt.Key_Tab) selIdx = Math.min(m.ws.length - 1, selIdx + 1)
         else if (e.key === Qt.Key_Left || e.key === Qt.Key_Backtab) selIdx = Math.max(0, selIdx - 1)
         else if (e.key === Qt.Key_Down) { selMon = Math.min(model.length - 1, selMon + 1); selIdx = Math.min(selIdx, model[selMon].ws.length) }
         else if (e.key === Qt.Key_Up) { selMon = Math.max(0, selMon - 1); selIdx = Math.min(selIdx, model[selMon].ws.length) }
         else if (e.key === Qt.Key_N) newWs(m.name)
-        else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { selIdx >= m.ws.length ? newWs(m.name) : activateWs(m.ws[selIdx].id) }
+        else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
+            var selectedWs = m.ws[selIdx]
+            if (selectedWs && selectedWs.id === "new") newWs(m.name)
+            else if (selectedWs) activateWs(selectedWs.id)
+        }
         e.accepted = true
     }
 
@@ -155,138 +175,70 @@ Scope {
             focus: true
             Keys.onPressed: e => ov.onKey(e)
 
-            Rectangle { anchors.fill: parent; color: Theme.scrim; opacity: ov.open ? 1 : 0; Behavior on opacity { NumberAnimation { duration: Theme.durBase } } }
-            MouseArea { anchors.fill: parent; onClicked: ov.hide() }
+            Rectangle { z: -2; anchors.fill: parent; color: Theme.scrim; opacity: ov.open ? 1 : 0; Behavior on opacity { NumberAnimation { duration: Theme.durBase } } }
+            // Keep the dismiss target underneath the workspace cards and their app icons.
+            MouseArea { z: -1; anchors.fill: parent; onClicked: ov.hide() }
 
-            Flickable {
-                anchors { fill: parent; margins: 40; bottomMargin: 70 }
-                contentHeight: col.height
-                contentWidth: width
-                clip: true
-                interactive: !ov.dragging
+            WorkspaceStrip {
+                z: 0
+                anchors.fill: parent
+                controller: ov
+                keyScope: keys
+                dragGhost: ghost
+            }
+
+            // Right-click an app icon to choose its destination explicitly.
+            Rectangle {
+                id: moveMenu
+                visible: ov.moveMenuWin !== null
+                z: 50
+                anchors.centerIn: parent
+                width: Math.min(500, parent.width - 32)
+                height: Math.min(parent.height - 80, menuColumn.implicitHeight + 32)
+                radius: Theme.radius
+                color: Theme.surface
+                border.width: Theme.strokeWidth
+                border.color: Theme.border
                 Column {
-                    id: col
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    spacing: 26
+                    id: menuColumn
+                    anchors { fill: parent; margins: 16 }
+                    spacing: 10
+                    Text {
+                        width: parent.width
+                        text: "Move “" + (ov.moveMenuWin ? ov.moveMenuWin.title : "") + "” to…"
+                        color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontXl; font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
                     Repeater {
                         model: ov.model
-                        delegate: Rectangle {
-                            id: sec
+                        delegate: Column {
                             required property var modelData
-                            required property int index
-                            width: row.width + Theme.pad * 2
-                            height: row.height + 56
-                            radius: Theme.radius
-                            border.width: Theme.strokeWidth
-                            border.color: modelData.focused ? Theme.accent : Theme.border
-                            gradient: Gradient {
-                                GradientStop { position: 0; color: Theme.glassPopTop }
-                                GradientStop { position: 1; color: Theme.glassPopBottom }
-                            }
-                            MouseArea { anchors.fill: parent }   // swallow clicks so the backdrop does not close
-                            Text {
-                                x: Theme.pad; y: 12
-                                text: sec.modelData.name + "   " + sec.modelData.desc + (sec.modelData.focused ? "   · focused" : "")
-                                color: Theme.text; font.family: Theme.font; font.pixelSize: 13; font.bold: true
-                            }
-                            Row {
-                                id: row
-                                x: Theme.pad; y: 40
-                                spacing: 14
+                            width: menuColumn.width
+                            spacing: 5
+                            Text { text: modelData.name; color: Theme.muted; font.family: Theme.font; font.pixelSize: 11 }
+                            Flow {
+                                width: parent.width
+                                spacing: 6
                                 Repeater {
-                                    model: sec.modelData.ws
-                                    delegate: Rectangle {
-                                        id: card
+                                    model: modelData.ws
+                                    delegate: UiBtn {
                                         required property var modelData
                                         required property int index
-                                        readonly property string key: sec.modelData.name + "|" + modelData.id
-                                        readonly property real cw: 230
-                                        readonly property real k: cw / sec.modelData.lw
-                                        width: cw; height: Math.max(90, sec.modelData.lh * k)
-                                        radius: 10; clip: true
-                                        color: ov.hoverKey === key ? Qt.alpha(Theme.accent, 0.28) : (cardMa.containsMouse ? Theme.surfaceHi : Theme.surface)
-                                        border.width: (ov.selMon === sec.index && ov.selIdx === index) || ov.hoverKey === key ? 2 : 1
-                                        border.color: (ov.selMon === sec.index && ov.selIdx === index) || ov.hoverKey === key ? Theme.accent : Theme.border
-                                        Component.onCompleted: ov.cards[key] = card
-                                        Component.onDestruction: delete ov.cards[key]
-                                        MouseArea {
-                                            id: cardMa; anchors.fill: parent; hoverEnabled: true
-                                            onClicked: ov.activateWs(card.modelData.id)
-                                        }
-                                        Text {
-                                            anchors { left: parent.left; bottom: parent.bottom; margins: 6 }
-                                            text: card.modelData.id + (card.modelData.active ? "  ● active" : "") + (card.modelData.wins.length === 0 ? "  (empty)" : "")
-                                            color: card.modelData.active ? Theme.accent : Theme.muted
-                                            font.family: Theme.font; font.pixelSize: 11
-                                        }
-                                        Repeater {
-                                            model: card.modelData.wins
-                                            delegate: Rectangle {
-                                                id: wcard
-                                                required property var modelData
-                                                x: Math.max(0, (modelData.at[0] - sec.modelData.mx) * card.k)
-                                                y: Math.max(0, (modelData.at[1] - sec.modelData.my) * card.k)
-                                                width: Math.max(34, Math.min(card.cw - x, modelData.size[0] * card.k))
-                                                height: Math.max(24, Math.min(card.height - y, modelData.size[1] * card.k))
-                                                radius: 5; clip: true
-                                                color: Qt.alpha(Theme.accent, wma.containsMouse ? 0.30 : 0.16)
-                                                border.width: Theme.strokeWidth; border.color: Qt.alpha(Theme.accent, 0.6)
-                                                opacity: ov.dragging && ov.dragWin && ov.dragWin.address === modelData.address ? 0.35 : 1
-                                                ScreencopyView {
-                                                    anchors.fill: parent
-                                                    captureSource: wcard.modelData.toplevel.wayland
-                                                    live: false
-                                                }
-                                                Image {
-                                                    anchors.centerIn: parent; width: 22; height: 22
-                                                    source: wcard.modelData.icon; sourceSize: Qt.size(44, 44)
-                                                    visible: wcard.width > 40 && wcard.height > 40
-                                                }
-                                                Text {
-                                                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 3 }
-                                                    text: wcard.modelData.title; elide: Text.ElideRight
-                                                    color: Theme.text; font.family: Theme.font; font.pixelSize: 9
-                                                }
-                                                MouseArea {
-                                                    id: wma; anchors.fill: parent; hoverEnabled: true
-                                                    property point start
-                                                    property bool moved: false
-                                                    cursorShape: ov.dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                                                    onPressed: m => { start = Qt.point(m.x, m.y); moved = false }
-                                                    onPositionChanged: m => {
-                                                        if (!pressed) return
-                                                        if (!ov.dragging && (Math.abs(m.x - start.x) + Math.abs(m.y - start.y)) > 8) {
-                                                            ov.dragWin = wcard.modelData; ov.dragging = true; moved = true
-                                                        }
-                                                        if (ov.dragging) {
-                                                            var p = wma.mapToItem(keys, m.x, m.y)
-                                                            ghost.x = p.x + 8; ghost.y = p.y + 8
-                                                            ov.hoverKey = ov.cardAt(p.x, p.y)
-                                                        }
-                                                    }
-                                                    onReleased: m => {
-                                                        if (ov.dragging) { var p = wma.mapToItem(keys, m.x, m.y); ov.dropOn(ov.cardAt(p.x, p.y)) }
-                                                        else { Wm.focusWindow(wcard.modelData.address); ov.hide() }
-                                                    }
-                                                    onCanceled: if (ov.dragging) ov.cancelDrag()
-                                                }
-                                            }
+                                        label: modelData.active ? "Current" : (modelData.extra ? "Empty" : "Open")
+                                        onClicked: {
+                                            ov.dragWin = ov.moveMenuWin
+                                            ov.moveMenuWin = null
+                                            ov.dropOn(modelData.monitor + "|" + modelData.id)
                                         }
                                     }
                                 }
-                                // "+" card: new workspace on this monitor (also a valid drop target)
-                                Rectangle {
-                                    id: plus
-                                    readonly property string key: sec.modelData.name + "|new"
-                                    width: 90; height: Math.max(90, sec.modelData.lh * 230 / sec.modelData.lw)
-                                    radius: 10
-                                    color: ov.hoverKey === key ? Qt.alpha(Theme.accent, 0.28) : (pma.containsMouse ? Theme.surfaceHi : "transparent")
-                                    border.width: (ov.selMon === sec.index && ov.selIdx === sec.modelData.ws.length) || ov.hoverKey === key ? 2 : 1
-                                    border.color: (ov.selMon === sec.index && ov.selIdx === sec.modelData.ws.length) || ov.hoverKey === key ? Theme.accent : Theme.border
-                                    Component.onCompleted: ov.cards[key] = plus
-                                    Component.onDestruction: delete ov.cards[key]
-                                    Text { anchors.centerIn: parent; text: "＋\nnew"; horizontalAlignment: Text.AlignHCenter; color: Theme.muted; font.family: Theme.font; font.pixelSize: 14 }
-                                    MouseArea { id: pma; anchors.fill: parent; hoverEnabled: true; onClicked: ov.newWs(sec.modelData.name) }
+                                UiBtn {
+                                    label: "New workspace"
+                                    onClicked: {
+                                        ov.dragWin = ov.moveMenuWin
+                                        ov.moveMenuWin = null
+                                        ov.dropOn(modelData.name + "|new")
+                                    }
                                 }
                             }
                         }
@@ -296,7 +248,7 @@ Scope {
 
             Text {
                 anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 26 }
-                text: ov.status !== "" ? ov.status : "←→↑↓ select · Enter switch · N new workspace · drag a window onto a workspace · Esc close"
+                text: ov.status !== "" ? ov.status : "←→ select · ↑↓ monitor · Enter switch · N new workspace · drag app icons · Esc close"
                 color: ov.statusBad ? Theme.red : (ov.status !== "" ? Theme.green : Theme.muted)
                 font.family: Theme.font; font.pixelSize: 13
             }

@@ -11,14 +11,18 @@ services/     singletons (state + logic, no UI)
   Wm.qml        windows / per-monitor workspaces / minimise / MRU (talks to hypr/modules/workspace_state.lua)
   Ui.qml        settings window state, focused screen
   Time.qml      one shared clock (minute precision unless seconds are visible)
+  Cava.qml      audio visualiser (starts Cava only while the media panel is open, sleeps when idle)
   StyleLibrary.qml  font / icon / cursor catalogue + install queue (runs scripts/asset-store.py)
 components/   reusable controls, all styled from Theme tokens
+              (OrbitChooser for the Wi-Fi/Bluetooth radial picker, GlassFinishControl, PasswordPrompt, …)
 modules/
   bar/            Bar (per monitor, widget order from Settings), CenterIsland (clock/OSD/now playing), WorkspaceDots
   panels/         dropdown contents: notifications, clipboard, calendar, appearance, sound, wifi, bluetooth, battery, power
   notifications/  Toasts (stacked pop-ups)
   settings/       SettingsWindow (SUPER+I) + pages/ (appearance, styles = fonts/icons/cursors, motion, bar, windows, wallpaper, notifications, keyboard, displays, about)
-  lock/ overview/ monitors/ keybinds/
+  pixel/          the session lock: PixelLock, PixelLockSurface, LockView, LockClock + styles, DotDigit
+  lock/           IdleGuard (idle dim → lock → screen off → suspend, logind)
+  overview/ monitors/ keybinds/ home/
 scripts/      on-demand helpers: bt.py (pairing agent), apply-theme.sh / apply-mode.sh (app theming), clipboard-history.sh,
               desktop-prefs.py (GTK/KDE fonts, icons, cursors), asset-store.py (downloads), rofi-prefs.py, quick-check.sh
 ```

@@ -15,10 +15,13 @@ Item {
     property color iconColor: Theme.text
     property string label: ""
     property string label2: ""
+    property int labelWidth: -1
+    property string labelFamily: Theme.font
     property bool active: false
-    property bool flat: false
+    property bool flat: Settings.barStyle !== "pills"
     property int badge: 0
     property int iconSize: Theme.barIcon
+    property real iconRotation: 0
     property string tooltip: ""
     readonly property bool hovered: ma.containsMouse
     signal clicked()
@@ -36,7 +39,7 @@ Item {
 
     implicitHeight: Theme.islandHeight
     implicitWidth: iconOnly ? Theme.islandHeight + 8
-        : labelX + l1.implicitWidth + (label2 !== "" ? gap + l2.implicitWidth : 0) + padR
+        : labelX + (labelWidth > 0 ? labelWidth : l1.implicitWidth) + (label2 !== "" ? gap + l2.implicitWidth : 0) + padR
 
     Accessible.role: Accessible.Button
     Accessible.name: tooltip !== "" ? tooltip : label
@@ -75,7 +78,10 @@ Item {
             code: b.code
             color: b.iconColor
             size: b.iconSize
-            fill: b.active ? 1 : 0
+            rotation: b.iconRotation
+            Behavior on rotation { enabled: Theme.animations; NumberAnimation { duration: Theme.dur(320); easing.type: Easing.OutCubic } }
+            // Opening a dropdown must not change the trigger icon's outline/fill style.
+            fill: 0
         }
         BarLabel {
             id: l1
@@ -84,6 +90,9 @@ Item {
             height: parent.height
             text: b.label
             color: Theme.text
+            width: b.labelWidth > 0 ? b.labelWidth : implicitWidth
+            family: b.labelFamily
+            clip: b.labelWidth > 0
         }
         BarLabel {
             id: l2

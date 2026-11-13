@@ -1,45 +1,160 @@
-# Sleek Shell default ~/.zshrc. Installed only when you had no ~/.zshrc; edit freely (upgrades keep your
-# changes). Personal additions can also go in ~/.zshrc.local, which is never touched.
+# Sleek Shell ~/.zshrc
+#
+# This is the shell profile the reference desktop runs: Powerlevel10k, eza, history
+# settings, autosuggestions, syntax highlighting and a few quality-of-life helpers.
+# The installer places it only when you have no ~/.zshrc of your own; upgrades never
+# overwrite your edits. Put personal additions in ~/.zshrc.local, which is never touched.
+
+# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Initialization code that may require console input (password prompts, [y/n]
+# confirmations, etc.) must go above this block; everything else may go below.
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# ==========================================
+# ZSH CONFIGURATION
+# ==========================================
+
+# Powerlevel10k (the installer clones it to ~/.powerlevel10k; a package install works too)
+if [[ -r ~/.powerlevel10k/powerlevel10k.zsh-theme ]]; then
+  source ~/.powerlevel10k/powerlevel10k.zsh-theme
+elif [[ -r /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme ]]; then
+  source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme
+fi
+
+# History
+HISTSIZE=10000
+SAVEHIST=10000
+HISTFILE=~/.zsh_history
+
+setopt SHARE_HISTORY
+setopt HIST_IGNORE_DUPS
+setopt AUTO_CD
+setopt CORRECT
+
+# ==========================================
+# AUTOSUGGESTIONS
+# ==========================================
+
+for _p in /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh \
+          /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh; do
+  [[ -r $_p ]] && { source "$_p"; break; }
+done
+unset _p
+
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=8"
+
+# ==========================================
+# SYNTAX HIGHLIGHTING
+# ==========================================
+
+# Load this AFTER autosuggestions
+for _p in /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+          /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
+  [[ -r $_p ]] && { source "$_p"; break; }
+done
+unset _p
+
+# Correct commands
+ZSH_HIGHLIGHT_STYLES[command]='fg=green,bold'
+ZSH_HIGHLIGHT_STYLES[builtin]='fg=green,bold'
+ZSH_HIGHLIGHT_STYLES[function]='fg=green'
+ZSH_HIGHLIGHT_STYLES[unknown-token]='fg=red,bold'
+ZSH_HIGHLIGHT_STYLES[reserved-word]='fg=cyan,bold'
+ZSH_HIGHLIGHT_STYLES[alias]='fg=green'
+ZSH_HIGHLIGHT_STYLES[path]='fg=cyan,underline'
+
+# ==========================================
+# ALIASES
+# ==========================================
+
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza --icons=auto'
+  alias ll='eza -lah --icons=auto'
+  alias la='eza -a --icons=auto'
+  alias tree='eza --tree --icons=auto'
+else
+  alias ls='ls --color=auto'
+  alias ll='ls -lah --color=auto'
+  alias la='ls -A --color=auto'
+fi
+alias cls='clear'
+
+# Clear terminal screen and scrollback
+clear() {
+    printf '\033[H\033[2J\033[3J'
+}
+
+# Bind Ctrl+L to clear everything
+clear-screen-and-scrollback() {
+    clear
+    zle reset-prompt
+}
+
+zle -N clear-screen-and-scrollback
+bindkey '^L' clear-screen-and-scrollback
+
+# ==========================================
+# POWERLEVEL10K CONFIG
+# ==========================================
+
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+
+# ==========================================
+# PATH AND TOOLS
+# ==========================================
 
 typeset -U path PATH
-path=("$HOME/.local/bin" $path)
+path=("$HOME/.local/bin" "$HOME/.local/share/npm/bin" "$HOME/.opencode/bin" "$HOME/.rift/bin" $path)
 export PATH
 export EDITOR="${EDITOR:-nano}"
 
-HISTFILE="${XDG_STATE_HOME:-$HOME/.local/state}/zsh/history"
-[[ -d "${HISTFILE:h}" ]] || mkdir -p "${HISTFILE:h}"
-HISTSIZE=50000
-SAVEHIST=50000
-setopt append_history share_history hist_ignore_dups hist_ignore_space hist_reduce_blanks
-setopt auto_cd interactive_comments no_beep extended_glob
+# Rust
+if [ -f "$HOME/.cargo/env" ]; then
+    source "$HOME/.cargo/env"
+fi
 
-bindkey -e
-bindkey '^[[H' beginning-of-line '^[[F' end-of-line '^[[3~' delete-char
-bindkey '^[[1;5C' forward-word '^[[1;5D' backward-word
-autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
-zle -N up-line-or-beginning-search; zle -N down-line-or-beginning-search
-bindkey '^[[A' up-line-or-beginning-search '^[[B' down-line-or-beginning-search
+# ==========================================
+# CUSTOM SHORTCUTS
+# ==========================================
 
-autoload -Uz compinit
-compinit -d "${XDG_CACHE_HOME:-$HOME/.cache}/zcompdump-$ZSH_VERSION"
-zstyle ':completion:*' menu select
-zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
-zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+alias sz='source ~/.zshrc'
+alias czsh='nano ~/.zshrc'
+alias ff='fastfetch'
 
-alias ls='ls --color=auto' ll='ls -lh --color=auto' la='ls -lAh --color=auto'
-alias grep='grep --color=auto' ip='ip -color=auto'
+# Rust Run - Compile and execute Rust files
+rr() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: rr <filename.rs>"
+        return 1
+    fi
 
-autoload -Uz vcs_info
-precmd() { vcs_info }
-zstyle ':vcs_info:git:*' formats ' %F{magenta}%b%f'
-setopt prompt_subst
-PROMPT='%F{blue}%~%f${vcs_info_msg_0_} %(?.%F{cyan}.%F{red})❯%f '
+    if [[ ! -f "$1" ]]; then
+        echo "Error: File '$1' not found!"
+        return 1
+    fi
 
-for _p in /usr/share/fzf/key-bindings.zsh /usr/share/fzf/completion.zsh \
-          /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh \
-          /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh; do
-    [[ -r $_p ]] && source "$_p"
-done
-unset _p
+    local filename="${1:t:r}"
+    local output="/tmp/rust_${filename}_$$"
+
+    echo "Compiling $1..."
+
+    if rustc "$1" -o "$output"; then
+        echo "Running $filename..."
+        echo "-------------------------"
+        "$output"
+        local exit_code=$?
+        rm -f "$output"
+        return $exit_code
+    else
+        echo "Compilation failed!"
+        return 1
+    fi
+}
+
+# ==========================================
+# LOCAL OVERRIDES
+# ==========================================
 
 [[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"

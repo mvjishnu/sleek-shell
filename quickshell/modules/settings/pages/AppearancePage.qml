@@ -8,7 +8,7 @@ import qs.modules.settings
 SettingsPage {
     id: pg
     title: "Appearance"
-    subtitle: "Colours, glass, shape and type for the whole desktop: shell, window borders and themed apps (kitty, Rofi, GTK, Qt)."
+    subtitle: "A coordinated Sleek Shell theme for Hyprland, GTK apps, Rofi, Kitty, micro and KDE/Qt apps."
 
     Text {
         visible: Theme.lastMessage !== ""
@@ -21,7 +21,7 @@ SettingsPage {
 
     SettingsSection {
         title: "Theme"
-        subtitle: "Light and dark switch the shell and GTK / Qt apps together. Solid turns glass and compositor blur off."
+        subtitle: "Light, dark and accent settings apply across Solid and Liquid glass styles."
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
@@ -38,7 +38,7 @@ SettingsPage {
                 onPicked: optionId => Theme.set("styleMode", optionId)
             }
         }
-        SectionLabel { title: "Palette"; subtitle: "Tint for glass surfaces plus a matching accent." }
+        SectionLabel { title: "Palette"; subtitle: "Bold solid accents with coordinated surface colors." }
         PaletteGrid { Layout.fillWidth: true; columns: 6; showNames: true }
         SectionLabel { title: "Accent"; subtitle: "Pick a swatch or type any hex colour. The first swatch follows the palette." }
         AccentRow { Layout.fillWidth: true }
@@ -61,6 +61,7 @@ SettingsPage {
                 readonly property bool current: Theme.activeTheme === modelData.name
                 property bool renaming: false
                 readonly property var pal: Theme.findPalette(modelData.values.palette)
+                readonly property color swatchColor: modelData.values.accent !== "" ? modelData.values.accent : Theme.rgb(pal.accent)
                 Layout.fillWidth: true
                 implicitHeight: 48
                 radius: Theme.controlRadius
@@ -71,10 +72,7 @@ SettingsPage {
                     spacing: 10
                     Rectangle {
                         implicitWidth: 28; implicitHeight: 28; radius: 14
-                        gradient: Gradient {
-                            GradientStop { position: 0; color: tr.modelData.values.accent !== "" ? tr.modelData.values.accent : Theme.rgb(tr.pal.accent) }
-                            GradientStop { position: 1; color: tr.modelData.values.mode === "light" ? "#f2f2f7" : Theme.rgb(tr.pal.tint) }
-                        }
+                        color: tr.swatchColor
                     }
                     ColumnLayout {
                         visible: !tr.renaming
@@ -113,43 +111,11 @@ SettingsPage {
     }
 
     SettingsSection {
-        title: "Glass and blur"
-        subtitle: "Blur is rendered by Hyprland on the GPU. Fewer passes and a smaller size are cheaper."
-        LabeledSlider {
-            label: "Glass opacity"
-            valueText: Math.round(Theme.glassOpacity * 100) + "%"
-            code: Theme.ic.snow; accent: Theme.cyan
-            from: 15; value: Theme.glassOpacity * 100
-            onMoved: v => Theme.set("glass", v / 100)
-            onReset: Theme.set("glass", Theme.defaults.glass)
-        }
-        LabeledSlider {
-            label: "Blur size"
-            enabled: Theme.styleMode === "glass"
-            valueText: Theme.blurSize + " px"
-            code: Theme.ic.drop; accent: Theme.purple
-            from: 100 / 24; value: Theme.blurSize * 100 / 24
-            onMoved: v => Theme.set("blurSize", v * 24 / 100)
-            onReset: Theme.set("blurSize", Theme.defaults.blurSize)
-        }
-        LabeledSlider {
-            label: "Blur passes"
-            enabled: Theme.styleMode === "glass"
-            valueText: Theme.blurPasses + (Theme.blurPasses === 1 ? " pass" : " passes")
-            code: Theme.ic.drop; accent: Theme.purple
-            from: 100 / 6; value: Theme.blurPasses * 100 / 6
-            onMoved: v => Theme.set("blurPasses", v * 6 / 100)
-            onReset: Theme.set("blurPasses", Theme.defaults.blurPasses)
-        }
-        LabeledSlider {
-            label: "Blur brightness"
-            enabled: Theme.styleMode === "glass"
-            valueText: Theme.blurBrightness + "%"
-            code: Theme.ic.sun; accent: Theme.yellow
-            from: 0; value: (Theme.blurBrightness - 60)
-            onMoved: v => Theme.set("blurBrightness", 60 + v)
-            onReset: Theme.set("blurBrightness", Theme.defaults.blurBrightness)
-        }
+        title: Theme.styleMode === "glass" ? "Glass finish" : "Solid finish"
+        subtitle: Theme.styleMode === "glass"
+            ? "One five-step control, from clear glass to a dense frost. Higher levels use stronger blur."
+            : "Opaque solid surfaces; background blur is disabled."
+        GlassFinishControl { visible: Theme.styleMode === "glass"; Layout.fillWidth: true }
     }
 
     SettingsSection {
@@ -157,11 +123,11 @@ SettingsPage {
         subtitle: "Each switch does exactly what it says, everywhere: no leftover outlines, separators or shadows."
         LabeledSlider {
             label: "Corner roundness"
-            valueText: Math.round(Theme.radiusScale * 100) + "%"
+            valueText: Theme.windowRounding === 0 ? "0 px · square" : Theme.windowRounding + " px"
             code: Theme.ic.scale; accent: Theme.accent
-            from: 0; value: (Theme.radiusScale - 0.4) / 1.2 * 100
-            onMoved: v => Theme.set("radiusScale", 0.4 + v / 100 * 1.2)
-            onReset: Theme.set("radiusScale", 1)
+            from: 0; value: Theme.windowRounding / 30 * 100
+            onMoved: v => Theme.setCornerRadius(v * 30 / 100)
+            onReset: Theme.setMany({ windowRounding: Theme.defaults.windowRounding, radiusScale: Theme.defaults.radiusScale })
         }
         SettingRow {
             title: "Panel outlines & separators"
@@ -175,29 +141,54 @@ SettingsPage {
         }
         Divider {}
         SettingRow {
-            title: "Window borders"
-            subtitle: Theme.compositorStatus
-            Toggle { checked: Theme.borderWidth > 0; accessibleName: "Window borders"; onToggled: Theme.set("borderWidth", Theme.borderWidth > 0 ? 0 : 2) }
+            title: "Window and app borders"
+            subtitle: "Hyprland, Kitty, Rofi and GTK app frames · 1–6 px or off. " + Theme.compositorStatus
+            Toggle {
+                checked: Theme.borderWidth > 0
+                accessibleName: "Window and shell borders"
+                onToggled: Theme.setGlobalBorders(!(Theme.borderWidth > 0))
+            }
         }
         LabeledSlider {
             label: "Border thickness"
             enabled: Theme.borderWidth > 0
             valueText: Theme.borderWidth === 0 ? "Off" : Theme.borderWidth + " px"
             code: Theme.ic.window; accent: Theme.accent
-            from: 25; value: Math.max(1, Theme.borderWidth) * 25
-            onMoved: v => Theme.set("borderWidth", Math.max(1, Math.round(v / 25)))
+            from: 100 / 6; value: Math.max(1, Theme.borderWidth) * 100 / 6
+            onMoved: v => Theme.set("borderWidth", Math.max(1, Math.round(v * 6 / 100)))
             onReset: Theme.set("borderWidth", 2)
         }
         SettingRow {
             title: "Colourful gradient"
-            subtitle: "Accent-to-palette gradient on the focused window; off uses the plain accent"
+            subtitle: "Accent-to-palette gradient when no custom window border color is set"
             Toggle { enabled: Theme.borderWidth > 0; checked: Theme.colorfulBorders; accessibleName: "Colourful borders"; onToggled: Theme.set("colorfulBorders", !Theme.colorfulBorders) }
+        }
+        SettingRow {
+            title: "Common window border color"
+            subtitle: "Used by Hyprland, the Sleek Shell bar, Kitty, Rofi and GTK app frames. Blank follows the appearance accent."
+            RowLayout {
+                Layout.fillWidth: true
+                UiField {
+                    id: borderColorField
+                    Layout.preferredWidth: 112
+                    placeholder: "Follow accent"
+                    text: Theme.windowBorderColor
+                    error: text !== "" && !Theme.validHex(text)
+                    onAccepted: if (text === "" || Theme.validHex(text)) Theme.set("windowBorderColor", text)
+                    input.onEditingFinished: {
+                        if (text === "" || Theme.validHex(text)) Theme.set("windowBorderColor", text)
+                        else text = Theme.windowBorderColor
+                    }
+                    Connections { target: Theme; function onWindowBorderColorChanged() { if (!borderColorField.input.activeFocus) borderColorField.text = Theme.windowBorderColor } }
+                }
+                UiBtn { label: "Accent"; onClicked: Theme.set("windowBorderColor", "") }
+            }
         }
     }
 
     SettingsSection {
         title: "Typography"
-        subtitle: "Font for all shell text. Icons always use JetBrainsMono Nerd Font."
+        subtitle: "Interface font for Sleek Shell and supported GTK, Rofi and Qt apps. Kitty keeps its terminal monospace font."
         Flow {
             Layout.fillWidth: true
             spacing: 6
@@ -221,7 +212,7 @@ SettingsPage {
 
     SettingsSection {
         title: "App theming"
-        subtitle: Theme.themedSummary() + ". Choose which apps follow the shell theme, give one its own palette, or leave it alone."
+        subtitle: Theme.themedSummary() + ". Palette, accent and light/dark mode sync automatically; restart GTK and Qt apps to refresh them."
         Segment {
             Layout.fillWidth: true
             model: [{ id: "all", label: "All supported apps", code: Theme.ic.check }, { id: "selected", label: "Only apps I pick", code: Theme.ic.palette }]
@@ -270,7 +261,7 @@ SettingsPage {
                             readonly property bool sel: appRow.rule.palette === modelData.id
                             width: 26; height: 26; radius: 13
                             color: Theme.rgb(modelData.tint)
-                            border.width: sel ? 2 : 1
+                            border.width: Theme.shellBorders ? (sel ? 2 : 1) : 0
                             border.color: sel ? Theme.text : Theme.border
                             Rectangle { anchors.centerIn: parent; width: 10; height: 10; radius: 5; color: Theme.rgb(parent.modelData.accent) }
                             MouseArea {

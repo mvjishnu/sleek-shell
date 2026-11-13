@@ -11,6 +11,8 @@ RowLayout {
     property real from: 0
     property real display: value
     property real keyboardStep: 5
+    property real stepSize: 0
+    property int valueWidth: 36
     property string valueText: ""
     property string accessibleName: "Setting"
     property bool showValue: true
@@ -18,6 +20,11 @@ RowLayout {
     signal iconClicked()
     spacing: 8
     Layout.fillWidth: true
+
+    function snapped(v) {
+        if (stepSize <= 0) return v
+        return from + Math.round((v - from) / stepSize) * stepSize
+    }
 
     onValueChanged: if (!ma.pressed) display = value
 
@@ -32,7 +39,7 @@ RowLayout {
         Accessible.name: s.accessibleName + ": " + (s.valueText !== "" ? s.valueText : Math.round(s.display) + "%")
 
         function nudge(delta) {
-            var next = Math.max(s.from, Math.min(100, s.display + delta))
+            var next = s.snapped(Math.max(s.from, Math.min(100, s.display + delta)))
             s.display = next
             s.moved(next)
         }
@@ -53,13 +60,25 @@ RowLayout {
             antialiasing: true
             color: Theme.track
             Rectangle {
-                width: Math.max(8, rail.width * (s.display - s.from) / (100 - s.from))
+                width: Math.max(0, rail.width * (s.display - s.from) / (100 - s.from))
                 height: parent.height; radius: 4
                 antialiasing: true
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0; color: Qt.alpha(s.accent, 0.55) }
                     GradientStop { position: 1; color: s.accent }
+                }
+            }
+            Repeater {
+                model: s.stepSize > 0 ? Math.floor((100 - s.from) / s.stepSize) + 1 : 0
+                delegate: Rectangle {
+                    required property int index
+                    width: 3; height: 3; radius: 2
+                    x: (rail.width - width) * index / Math.max(1, (100 - s.from) / s.stepSize)
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: Theme.text
+                    opacity: 0.7
+                    z: 1
                 }
             }
         }
@@ -90,7 +109,7 @@ RowLayout {
             hoverEnabled: true
             function set(mx) {
                 var f = Math.max(0, Math.min(1, mx / width))
-                s.display = s.from + f * (100 - s.from)
+                s.display = s.snapped(s.from + f * (100 - s.from))
                 s.moved(s.display)
             }
             onPressed: mouse => { track.forceActiveFocus(); set(mouse.x) }
@@ -103,7 +122,7 @@ RowLayout {
         text: s.valueText !== "" ? s.valueText : Math.round(s.display) + "%"
         color: Theme.muted
         font.family: Theme.font; font.pixelSize: 12
-        Layout.preferredWidth: 36
+        Layout.preferredWidth: s.valueWidth
         horizontalAlignment: Text.AlignRight
     }
 }

@@ -48,7 +48,8 @@ Singleton {
                 t.unshift(n.id)
                 ns.toasts = t.slice(0, Settings.toastMax)
             }
-            n.closed.connect(function () { ns.forget(item.id) })
+            // Closing a toast (including its timeout) must not erase history.
+            // Explicit dismiss/clear actions remove the stored item themselves.
         }
     }
 

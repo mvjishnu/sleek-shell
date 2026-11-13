@@ -43,7 +43,8 @@ Singleton {
                 var it = b.islands[k]
                 if (!it || !it.visible || it.width <= 0) continue
                 var p = it.mapToItem(null, 0, 0)
-                var rec = { name: k, x: p.x, y: p.y, w: it.width, h: it.height }
+                var rec = { name: k, x: p.x, y: p.y, w: it.width, h: it.height, opacity: it.opacity }
+                if (k === "calendar") { rec.clockVisible = it.debugClockVisible; rec.clockText = it.debugClockText; rec.lockHidden = Sys.lockHideClock }
                 if (it.badge > 0) rec.badge = { x: p.x + it.width - 16, y: p.y + 2.5, w: 11, h: 11, icon: "" + it.iconColor }   // BarButton badge (8 px + ring), excluded from centring
                 out.items.push(rec)
             }
@@ -55,7 +56,7 @@ Singleton {
         function entryFocused(): bool { return ui.dbgEntryFocus }
         function state(): string {
             return JSON.stringify({ popup: Sys.openPopup, screen: Sys.openScreen, wifiOn: Sys.wifiOn, ssid: Sys.ssid, busy: Sys.wifiBusy,
-                                    pending: Sys.wifiPending, note: Sys.wifiPendingNote, msg: Sys.wifiMsg, scanning: Sys.wifiScanning,
+                                    pending: Sys.wifiPending, note: Sys.wifiPendingNote, msg: Sys.wifiMsg, scanning: Sys.wifiScanning, lockHideClock: Sys.lockHideClock,
                                     networks: Sys.wifiList.map(function (n) { return n.ssid + (n.known ? "*" : "") + ":" + n.signal + (n.active ? ":on" : "") }) })
         }
     }

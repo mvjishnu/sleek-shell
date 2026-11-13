@@ -7,9 +7,9 @@ Settings → Keyboard (`SUPER+I`). Your changes are saved in `~/.config/sleek-sh
 | Keys | Action |
 |---|---|
 | `SUPER` (tap) | App launcher (rofi) |
-| `SUPER+T` | Terminal (`$SLEEK_TERMINAL`, default `kitty`) |
-| `SUPER+E` | File manager (`$SLEEK_FILE_MANAGER`, default: your desktop's default) |
-| `SUPER+B` | Browser (`$SLEEK_BROWSER`, default: your desktop's default) |
+| `SUPER+T` | Terminal (`kitty --single-instance`) |
+| `SUPER+E` | File manager (Thunar) |
+| `SUPER+B` | Browser (Zen Browser by default) |
 | `SUPER+C` | Clipboard history (rofi) |
 | `SUPER+ALT+C` | Calculator & unit converter |
 
@@ -56,12 +56,16 @@ While Settings → Keyboard is recording a shortcut, `SUPER+ALT+Escape` leaves t
 
 ## Changing programs
 
-Hyprland reads these variables at startup. Put them where your login sets the environment:
-- greetd, including the Sleek Shell greeter, reads `~/.profile`.
-- A TTY login reads your shell's login file: `~/.bash_profile` (or `~/.profile`) for bash, `~/.zprofile` for zsh.
-```sh
-export SLEEK_TERMINAL=foot
-export SLEEK_FILE_MANAGER=nautilus
-export SLEEK_BROWSER=firefox
+The defaults are the `local` variables at the top of `hypr/modules/keybinds.lua`:
+
+```lua
+local terminal    = "kitty --single-instance"
+local fileManager = "thunar"
+local menu        = "rofi -show drun"
 ```
-Log in again afterwards. To rebind keys instead, use Settings → Keyboard.
+
+Change them there, then reload Hyprland (`hyprctl reload`) or reboot. To rebind keys instead, use
+Settings → Keyboard; your changes are written to `~/.config/hypr/custom_binds.lua` and survive upgrades.
+
+The wallpaper folder and transition are in Settings → Wallpaper and stored in
+`~/.config/sleek-shell/settings.json`.
