@@ -215,6 +215,52 @@ fi
 # ---------------------------------------------------------------------------
 rofi="$CFG/rofi/themes/rice.rasi"
 if [ -f "$rofi" ] && app_on rofi && load_app rofi; then
+    # Upgrade legacy hardcoded window, inputbar and element properties to use RASI theme variables
+    python3 - "$rofi" <<'PY'
+import os, re, sys
+path = sys.argv[1]
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        s = f.read()
+
+    def repl_window(m):
+        w = m.group(0)
+        if "border:" in w and "@window-border" not in w:
+            w = re.sub(r'border:\s*[^;]+;', 'border: @window-border;', w)
+        elif "@window-border" not in w:
+            w = re.sub(r'(background-color:\s*[^;]+;)', r'\1\n    border: @window-border;', w)
+        if "border-color:" in w and "@window-border-color" not in w:
+            w = re.sub(r'border-color:\s*[^;]+;', 'border-color: @window-border-color;', w)
+        elif "@window-border-color" not in w:
+            w = re.sub(r'(border:\s*@window-border;)', r'\1\n    border-color: @window-border-color;', w)
+        if "border-radius:" in w and "@window-radius" not in w:
+            w = re.sub(r'border-radius:\s*[^;]+;', 'border-radius: @window-radius;', w)
+        return w
+
+    s = re.sub(r'(?s)window\s*\{.*?\}', repl_window, s, count=1)
+
+    def repl_inputbar(m):
+        b = m.group(0)
+        if "border-radius:" in b and "@surface-radius" not in b:
+            b = re.sub(r'border-radius:\s*[^;]+;', 'border-radius: @surface-radius;', b)
+        return b
+    s = re.sub(r'(?s)inputbar\s*\{.*?\}', repl_inputbar, s, count=1)
+
+    def repl_element(m):
+        e = m.group(0)
+        if "border-radius:" in e and "@item-radius" not in e:
+            e = re.sub(r'border-radius:\s*[^;]+;', 'border-radius: @item-radius;', e)
+        return e
+    s = re.sub(r'(?s)(?<!\.)element\s*\{.*?\}', repl_element, s, count=1)
+
+    tmp = path + ".sleek-upgrade.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(s)
+    os.replace(tmp, path)
+except Exception:
+    pass
+PY
+
     # Solid launcher surfaces are fully opaque; Glass keeps a translucent background.
     if [ "${STYLE:-glass}" = "solid" ]; then
         ra="ff"

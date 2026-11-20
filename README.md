@@ -15,6 +15,8 @@ One command turns a minimal Arch/CachyOS install into the reference desktop:
 compositor, shell, drivers, services, apps, boot animation, wallpapers, shell profile,
 auto-login and auto-lock included.
 
+<img src="assets/screenshots/desktop.jpg" alt="Sleek Shell desktop: top bar over the wallpaper" width="100%">
+
 </div>
 
 ---
@@ -23,6 +25,7 @@ auto-login and auto-lock included.
 
 - [What you get](#what-you-get)
 - [The look](#the-look)
+  - [Screenshots](#screenshots)
 - [Requirements](#requirements)
 - [Installation](#installation)
   - [One command](#one-command)
@@ -84,6 +87,22 @@ The reference desktop is dark, glassy and compact:
 Every colour, radius, blur strength, gap, font and animation speed is editable live in
 **Settings → Appearance**, **Windows**, **Fonts, icons & cursors** and **Motion**. The settings
 app writes the compositor state, so changes survive `hyprctl reload` and a reboot.
+
+### Screenshots
+
+**Bar panels**: calendar with analogue clock, sound output switcher, notification centre with
+do-not-disturb, battery with power profiles, and brightness. Every bar item opens its own glass island.
+
+![Bar panels: calendar, sound, notifications, battery and brightness](assets/screenshots/panels.jpg)
+
+| | |
+|---|---|
+| ![Rofi app launcher](assets/screenshots/launcher.jpg) | ![Workspace overview on three monitors](assets/screenshots/overview.jpg) |
+| **Launcher**: Rofi with the live theme, icons and blur (`SUPER`) | **Overview**: every monitor's workspaces, drag windows between them (`SUPER+Tab`) |
+| ![Settings: appearance, palettes and accents](assets/screenshots/settings-appearance.jpg) | ![Settings: fonts, icons and cursors](assets/screenshots/settings-styles.jpg) |
+| **Settings → Appearance**: dark/light, solid/liquid glass, 24 palettes, custom accent, saved themes | **Settings → Fonts, icons & cursors**: installed fonts with previews, Google Fonts, icon and cursor stores |
+| ![Settings: keyboard shortcuts](assets/screenshots/settings-keyboard.jpg) | ![Power menu](assets/screenshots/power-menu.jpg) |
+| **Settings → Keyboard**: search, rebind, disable or add shortcuts without editing files | **Power menu**: lock, log out, suspend, hibernate, shut down, reboot |
 
 ## Requirements
 

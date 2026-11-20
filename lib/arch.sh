@@ -16,7 +16,7 @@ ARCH_BASE_PKGS=(
     networkmanager bluez bluez-utils upower power-profiles-daemon
     xdg-user-dirs xdg-utils gvfs git unzip archlinux-xdg-menu
     kitty awww rofi wl-clipboard cliphist grim slurp jq libnotify pavucontrol brightnessctl playerctl
-    thunar thunar-volman gvfs resources nwg-displays eza fastfetch cava ttf-croscore ttf-indic-otf
+    thunar thunar-volman gvfs resources nwg-displays eza fastfetch cava ttf-croscore
     zsh zsh-completions zsh-autosuggestions zsh-syntax-highlighting fzf
     noto-fonts noto-fonts-emoji ttf-jetbrains-mono-nerd inter-font papirus-icon-theme adwaita-cursors
 )

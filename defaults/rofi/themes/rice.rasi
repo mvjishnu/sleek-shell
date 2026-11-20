@@ -1,4 +1,4 @@
-/* Sleek Shell: borderless liquid-glass launcher (blur comes from the Hyprland layer rule) */
+/* Sleek Shell: liquid-glass launcher (blur comes from the Hyprland layer rule) */
 * {
     bg:        #1c1a3ccf;
     surface:   #ffffff1a;
@@ -10,6 +10,11 @@
     cyan:      #8be0ff;
     purple:    #b69aff;
     pink:      #ff70c5;
+    window-border: 2px;
+    window-border-color: #8be0ff;
+    window-radius: 14px;
+    surface-radius: 10px;
+    item-radius: 7px;
 
     background-color: transparent;
     text-color: @fg;
@@ -21,8 +26,9 @@ window {
     anchor: center;
     width: 620px;
     background-color: @bg;
-    border: 0px;
-    border-radius: 26px;
+    border: @window-border;
+    border-color: @window-border-color;
+    border-radius: @window-radius;
     padding: 0;
 }
 
@@ -38,7 +44,7 @@ inputbar {
     padding: 14px 16px;
     background-color: @surface;
     border: 0px;
-    border-radius: 18px;
+    border-radius: @surface-radius;
 }
 
 prompt {
@@ -67,7 +73,7 @@ listview {
 element {
     padding: 10px 12px;
     spacing: 14px;
-    border-radius: 14px;
+    border-radius: @item-radius;
     orientation: horizontal;
 }
 

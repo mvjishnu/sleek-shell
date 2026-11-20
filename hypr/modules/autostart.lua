@@ -26,6 +26,9 @@ hl.on("hyprland.start", function ()
   hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE")
   hl.exec_cmd(config .. "/hypr/scripts/start-shell")
   hl.exec_cmd(config .. "/hypr/scripts/polkit-agent")
+  -- Automount removable drives (USB sticks, external HDDs) and notify on insert.
+  -- Skipped silently when udiskie is not installed (optional dependency).
+  hl.exec_cmd("sh -c 'command -v udiskie >/dev/null && exec udiskie'")
   hl.exec_cmd("wl-paste --type text --watch cliphist store")
   hl.exec_cmd("wl-paste --type image --watch cliphist store")
   hl.exec_cmd("awww-daemon")

@@ -8,7 +8,7 @@ import qs.modules.settings
 SettingsPage {
     id: pg
     title: "Fonts, icons & cursors"
-    subtitle: "Download new fonts, app icon themes and mouse cursors, then pick them for the shell, your apps and the terminal. Everything installs into your home folder; no password needed."
+    subtitle: "Pick fonts for the shell, apps and terminal, and choose the cursor and application icon themes used by GTK, Qt, Hyprland and Rofi. Downloads stay in your home folder; repository packages are installed only after you confirm."
 
     property string tab: "fonts"
     readonly property int cols: width > 700 ? 2 : 1
@@ -47,13 +47,24 @@ SettingsPage {
         property string arg: ""
         property bool installed: false
         property string installLabel: "Install"
+        property bool armed: false
         signal install()
         readonly property bool pending: StyleLibrary.isPending(kind, arg)
         readonly property bool running: StyleLibrary.current !== null && StyleLibrary.current.kind === kind && StyleLibrary.current.arg === arg
         spacing: 6
+        Timer { id: jsDisarm; interval: 4000; onTriggered: js.armed = false }
         Badge { visible: js.installed && !js.pending; text: "Installed"; tone: Theme.green }
-        Badge { visible: js.pending; text: js.running ? "Downloading..." : "Queued"; tone: Theme.yellow }
-        UiBtn { visible: !js.installed && !js.pending; label: js.installLabel; code: Theme.ic.download; onClicked: js.install() }
+        Badge { visible: js.pending; text: js.running ? "Working..." : "Queued"; tone: Theme.yellow }
+        UiBtn {
+            visible: !js.installed && !js.pending
+            label: js.armed ? "Confirm download" : js.installLabel
+            selected: js.armed
+            code: Theme.ic.download
+            onClicked: {
+                if (js.armed) { js.armed = false; js.install() }
+                else { js.armed = true; jsDisarm.restart() }
+            }
+        }
     }
     component ChipRow: Flow {
         id: chips
@@ -155,7 +166,7 @@ SettingsPage {
 
     Segment {
         Layout.fillWidth: true
-        model: [{ id: "fonts", label: "Fonts", code: Theme.ic.font }, { id: "icons", label: "App icons", code: Theme.ic.apps }, { id: "cursors", label: "Mouse cursors", code: Theme.ic.cursor }]
+        model: [{ id: "fonts", label: "Fonts", code: Theme.ic.font }, { id: "cursors", label: "Cursor themes", code: Theme.ic.cursor }, { id: "icons", label: "Application icons", code: Theme.ic.apps }]
         current: pg.tab
         onPicked: optionId => pg.tab = optionId
     }
@@ -254,6 +265,36 @@ SettingsPage {
             label: "Show more (" + (yours.shown.length - yours.limit) + " left)"
             code: Theme.ic.down
             onClicked: yours.limit += 24
+        }
+    }
+
+    SettingsSection {
+        id: tamilSec
+        readonly property var tamil: Settings.desktopInfo.tamil || []
+        visible: pg.tab === "fonts" && tamil.length > 0
+        title: "Tamil-only fonts"
+        subtitle: "These families identify themselves as Tamil-script faces. Removing them deletes their files instead of hiding them: your own fonts immediately, system fonts after the administrator prompt (moved to a backup folder, so a package update can still restore them)."
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Text {
+                Layout.fillWidth: true
+                text: tamilSec.tamil.map(function (x) { return x.f }).join("  ·  ")
+                color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm; wrapMode: Text.WordWrap
+            }
+            ConfirmBtn {
+                baseLabel: "Remove " + tamilSec.tamil.length + " families"
+                confirmLabel: "Confirm removal"
+                code: Theme.ic.trash
+                enabled: !StyleLibrary.isPending("tamil", "tamil")
+                onConfirmed: StyleLibrary.removeTamil()
+            }
+        }
+        Text {
+            visible: StyleLibrary.isPending("tamil", "tamil")
+            Layout.fillWidth: true
+            text: "Removing Tamil-only fonts... approve the administrator prompt if one appears."
+            color: Theme.yellow; font.family: Theme.font; font.pixelSize: Theme.fontSm; wrapMode: Text.WordWrap
         }
     }
 
@@ -401,20 +442,76 @@ SettingsPage {
 
     // ================================================================== ICONS
     SettingsSection {
+        id: iconCurrent
         visible: pg.tab === "icons"
-        title: "App icon themes"
-        subtitle: "Click a theme to use it for apps, file managers and Rofi. Apps that are already open may need a restart."
+        title: "Current application icon theme"
+        subtitle: "One theme is shared by GTK apps, KDE/Qt apps and Rofi. Some already-open applications keep their old icons until restarted."
+        readonly property var cur: (Settings.desktopInfo.icons || []).filter(function (x) { return x.id === Settings.iconTheme })[0] || null
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+            Rectangle {
+                implicitWidth: 40; implicitHeight: 40; radius: Theme.controlRadius
+                color: Qt.alpha(Theme.accent, 0.18); border.width: 1; border.color: Qt.alpha(Theme.accent, 0.5)
+                Glyph { anchors.centerIn: parent; code: Theme.ic.apps; size: 20; color: Theme.accent }
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+                Text { text: Settings.iconTheme || "Automatic"; color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text {
+                    Layout.fillWidth: true
+                    text: iconCurrent.cur ? (iconCurrent.cur.comment || "Installed icon theme") : "Selected theme; waiting for the icon list to refresh"
+                    color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm; elide: Text.ElideRight
+                }
+            }
+            Badge { text: iconCurrent.cur ? (iconCurrent.cur.removable ? "User theme" : "System theme") : "Selected"; tone: Theme.cyan }
+            UiBtn { label: "Apply again"; code: Theme.ic.refresh; onClicked: Settings.applyDesktop() }
+        }
         Text {
-            visible: Settings.desktopListing && Settings.desktopInfo.icons.length === 0
-            text: "Scanning installed themes..."
+            Layout.fillWidth: true
+            text: "Integration: GTK and Rofi are updated immediately. KDE/Qt reads kdeglobals [Icons] Theme; only compatible Qt styles and apps that honour the KDE setting will change, usually after a restart. XWayland apps use the Xcursor environment rather than the icon theme."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontXs; wrapMode: Text.WordWrap
+        }
+    }
+
+    SettingsSection {
+        id: iconInstalled
+        visible: pg.tab === "icons"
+        title: "Installed icon themes"
+        subtitle: "Discovered from your home folder and the system icon directories. Click a card to use it everywhere icons are applied."
+        property string query: ""
+        readonly property var all: Settings.desktopInfo.icons || []
+        readonly property var shown: all.filter(function (x) {
+            return query === "" || (x.name || "").toLowerCase().indexOf(query.toLowerCase()) >= 0 || (x.id || "").toLowerCase().indexOf(query.toLowerCase()) >= 0
+        })
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            UiField { Layout.fillWidth: true; code: Theme.ic.search; placeholder: "Search installed icon themes"; onEdited: iconInstalled.query = text }
+            UiBtn { visible: Settings.desktopListing; label: "Refresh"; code: Theme.ic.refresh; onClicked: Settings.listDesktop() }
+        }
+        Text {
+            visible: Settings.desktopListing && iconInstalled.all.length === 0
+            text: "Scanning installed icon themes..."
             color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+        Text {
+            visible: !Settings.desktopListing && iconInstalled.all.length === 0
+            text: "No icon themes were found. Use \"Get more icon themes\" below."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+        Text {
+            visible: iconInstalled.all.length > 0 && iconInstalled.shown.length === 0
+            text: "No installed icon themes match \"" + iconInstalled.query + "\"."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm
         }
         GridLayout {
             Layout.fillWidth: true
             columns: pg.cols
             columnSpacing: 8; rowSpacing: 8
             Repeater {
-                model: Settings.desktopInfo.icons
+                model: iconInstalled.shown
                 delegate: Card {
                     id: card
                     required property var modelData
@@ -457,19 +554,63 @@ SettingsPage {
     }
 
     SettingsSection {
+        id: iconShop
         visible: pg.tab === "icons"
         title: "Get more icon themes"
-        subtitle: "Popular free icon themes. Sizes are approximate downloads."
+        subtitle: "Popular free icon themes. Downloads go to ~/.local/share/icons. Repository packages need your confirmation and a polkit password prompt; nothing is installed automatically."
+        property string query: ""
+        property string filter: "available"
+        readonly property var all: StyleLibrary.icons
+        readonly property var matching: all.filter(function (x) {
+            return query === "" || (x.name || "").toLowerCase().indexOf(query.toLowerCase()) >= 0 || (x.desc || "").toLowerCase().indexOf(query.toLowerCase()) >= 0
+        })
+        readonly property var available: matching.filter(function (x) { return !x.installed })
+        readonly property var installed: matching.filter(function (x) { return x.installed })
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            UiField { Layout.fillWidth: true; code: Theme.ic.search; placeholder: "Search icon themes, e.g. Papirus, Tela, Fluent"; onEdited: iconShop.query = text }
+            UiBtn { label: "Refresh list"; code: Theme.ic.refresh; onClicked: StyleLibrary.load(true) }
+        }
+        ChipRow {
+            current: iconShop.filter
+            options: [
+                { id: "available", label: "Available  " + iconShop.available.length },
+                { id: "installed", label: "Installed  " + iconShop.installed.length },
+                { id: "all", label: "All  " + iconShop.matching.length }
+            ]
+            onPicked: optionId => iconShop.filter = optionId
+        }
+        Text {
+            visible: !StyleLibrary.loaded
+            text: StyleLibrary.catalogError !== "" ? StyleLibrary.catalogError : "Loading the icon catalogue..."
+            color: StyleLibrary.catalogError !== "" ? Theme.red : Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+        UiBtn { visible: StyleLibrary.catalogError !== ""; label: "Retry"; code: Theme.ic.refresh; onClicked: StyleLibrary.load(true) }
+        Text {
+            visible: StyleLibrary.loaded && StyleLibrary.platform.canInstallPackages === false
+            Layout.fillWidth: true
+            text: "Repository installation is unavailable on this system (needs Arch/CachyOS, pacman and pkexec). Downloads still work."
+            color: Theme.yellow; font.family: Theme.font; font.pixelSize: Theme.fontXs; wrapMode: Text.WordWrap
+        }
+
+        Text {
+            visible: iconShop.filter !== "installed" && iconShop.available.length > 0
+            text: "Available to install"
+            color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold
+        }
         GridLayout {
+            visible: iconShop.filter !== "installed"
             Layout.fillWidth: true
             columns: pg.cols
             columnSpacing: 8; rowSpacing: 8
             Repeater {
-                model: StyleLibrary.icons
+                model: iconShop.available
                 delegate: Card {
                     id: ic
                     required property var modelData
-                    chosen: modelData.installed && modelData.themes.indexOf(Settings.iconTheme) >= 0
+                    readonly property bool pkgPending: StyleLibrary.isPending("pkg", modelData.id)
+                    readonly property bool dlPending: StyleLibrary.isPending("icon", modelData.id)
                     implicitHeight: icCol.implicitHeight + 20
                     ColumnLayout {
                         id: icCol
@@ -483,27 +624,95 @@ SettingsPage {
                             Text { text: "~" + ic.modelData.mb + " MB"; color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontXs }
                         }
                         Text { Layout.fillWidth: true; text: ic.modelData.desc; color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm; wrapMode: Text.WordWrap }
-                        RowLayout {
+                        Flow {
                             Layout.fillWidth: true
                             spacing: 6
                             Badge { visible: ic.modelData.script; text: "official install.sh"; tone: Theme.muted }
+                            Badge { visible: ic.modelData.pkg !== "" && ic.modelData.pkgAvailable; text: "repository package"; tone: Theme.green }
+                            Badge { visible: ic.modelData.pkg !== "" && !ic.modelData.pkgAvailable; text: "package unavailable"; tone: Theme.yellow }
+                            Badge { visible: ic.pkgPending; text: StyleLibrary.current && StyleLibrary.current.arg === ic.modelData.id ? "Installing package..." : "Queued"; tone: Theme.yellow }
+                            Badge { visible: ic.dlPending; text: "Downloading..."; tone: Theme.yellow }
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
                             Item { Layout.fillWidth: true }
-                            UiBtn {
-                                visible: ic.modelData.installed && ic.modelData.themes.length > 0
-                                label: ic.chosen ? "In use" : "Use"
-                                selected: ic.chosen
-                                onClicked: Settings.setDesktop("iconTheme", ic.modelData.themes[0])
+                            ConfirmBtn {
+                                visible: !!ic.modelData.pkg && ic.modelData.pkgAvailable && StyleLibrary.platform.canInstallPackages && !ic.pkgPending && !ic.dlPending
+                                baseLabel: "Install package"
+                                confirmLabel: "Confirm package install"
+                                code: Theme.ic.pack
+                                onConfirmed: StyleLibrary.installPackage(ic.modelData, "icon")
                             }
-                            JobState { kind: "icon"; arg: ic.modelData.id; installed: ic.modelData.installed; onInstall: StyleLibrary.installIcon(ic.modelData) }
+                            ConfirmBtn {
+                                visible: ic.modelData.downloadable && !ic.pkgPending && !ic.dlPending
+                                baseLabel: "Download"
+                                confirmLabel: "Confirm download"
+                                code: Theme.ic.download
+                                onConfirmed: StyleLibrary.installIcon(ic.modelData)
+                            }
+                            Badge {
+                                visible: !ic.modelData.downloadable && !(!!ic.modelData.pkg && ic.modelData.pkgAvailable)
+                                text: "Not available here"; tone: Theme.red
+                            }
                         }
                     }
                 }
             }
         }
         Text {
-            visible: !StyleLibrary.loaded
-            text: StyleLibrary.catalogError !== "" ? StyleLibrary.catalogError : "Loading the catalogue..."
-            color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm
+            visible: StyleLibrary.loaded && iconShop.filter === "available" && iconShop.available.length === 0
+            text: iconShop.matching.length === 0 ? "No icon themes match \"" + iconShop.query + "\"." : "Every matching icon theme is already installed."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+
+        Text {
+            visible: iconShop.filter !== "available" && iconShop.installed.length > 0
+            text: "Installed from the store"
+            color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold
+        }
+        GridLayout {
+            visible: iconShop.filter !== "available"
+            Layout.fillWidth: true
+            columns: pg.cols
+            columnSpacing: 8; rowSpacing: 8
+            Repeater {
+                model: iconShop.installed
+                delegate: Card {
+                    id: icg
+                    required property var modelData
+                    readonly property bool inUse: (modelData.themes || []).indexOf(Settings.iconTheme) >= 0
+                    chosen: icg.inUse
+                    implicitHeight: icgCol.implicitHeight + 20
+                    ColumnLayout {
+                        id: icgCol
+                        anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
+                        spacing: 4
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Rectangle { implicitWidth: 10; implicitHeight: 10; radius: 5; color: Theme[icg.modelData.tone] || Theme.accent }
+                            Text { Layout.fillWidth: true; text: icg.modelData.name; color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                            Badge { text: icg.inUse ? "In use" : "Installed"; tone: icg.inUse ? Theme.green : Theme.muted }
+                            ConfirmTrash { visible: !!icg.modelData.downloaded && !icg.inUse; boxSize: 22; onConfirmed: StyleLibrary.removeThemes("icon", icg.modelData.themes) }
+                        }
+                        Text { Layout.fillWidth: true; text: (icg.modelData.themes || []).join(", "); color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm; elide: Text.ElideRight }
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Repeater {
+                                model: icg.modelData.themes || []
+                                delegate: UiBtn {
+                                    required property string modelData
+                                    label: modelData
+                                    selected: Settings.iconTheme === modelData
+                                    onClicked: Settings.setDesktop("iconTheme", modelData)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -511,31 +720,84 @@ SettingsPage {
 
     // ================================================================== CURSORS
     SettingsSection {
+        id: cursorCurrent
         visible: pg.tab === "cursors"
-        title: "Mouse cursor"
-        subtitle: "Applies to Hyprland right away and to GTK / Qt apps (new windows; some already-open apps keep the old cursor until restarted)."
+        title: "Current cursor theme"
+        subtitle: "Applied immediately in Hyprland and written for GTK, KDE/Qt and XWayland. New windows pick it up at once; already-open apps may need a restart."
+        readonly property var cur: (Settings.desktopInfo.cursors || []).filter(function (x) { return x.id === Settings.cursorTheme })[0] || null
         RowLayout {
             Layout.fillWidth: true
             spacing: 10
-            Text { text: "Size"; color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold }
-            Segment {
-                Layout.fillWidth: true
-                model: Settings.cursorSizes.map(function (s) { return { id: String(s), label: s + " px", code: 0 } })
-                current: String(Settings.cursorSize)
-                onPicked: optionId => Settings.setDesktop("cursorSize", Number(optionId))
+            Rectangle {
+                implicitWidth: 40; implicitHeight: 40; radius: Theme.controlRadius
+                color: Qt.alpha(Theme.accent, 0.18); border.width: 1; border.color: Qt.alpha(Theme.accent, 0.5)
+                Glyph { anchors.centerIn: parent; code: Theme.ic.cursor; size: 20; color: Theme.accent }
             }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 2
+                Text { text: Settings.cursorTheme || "System default"; color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text {
+                    Layout.fillWidth: true
+                    text: Settings.cursorSize + " px" + (Settings.desktopInfo.current && Settings.desktopInfo.current.cursorSize ? "  ·  now " + Settings.desktopInfo.current.cursorSize + " px" : "")
+                    color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm
+                }
+            }
+            Badge { text: cursorCurrent.cur ? (cursorCurrent.cur.removable ? "User theme" : "System theme") : "Selected"; tone: Theme.cyan }
+            UiBtn { label: "Apply again"; code: Theme.ic.refresh; onClicked: Settings.applyDesktop() }
+        }
+        LabeledSlider {
+            label: "Cursor size"
+            valueText: Settings.cursorSize + " px"
+            code: Theme.ic.cursor; accent: Theme.cyan
+            from: 0; value: (Settings.cursorSize - 16) * 100 / 48
+            onMoved: v => Settings.setDesktop("cursorSize", 16 + Math.round(v * 48 / 100))
+            onReset: Settings.setDesktop("cursorSize", Settings.defaults.cursorSize)
         }
         Text {
-            visible: Settings.desktopListing && (Settings.desktopInfo.cursors || []).length === 0
-            text: "Scanning installed cursors..."
+            Layout.fillWidth: true
+            text: "Integration: Hyprland (hyprctl setcursor and HYPRCURSOR_*), XCURSOR_THEME / XCURSOR_SIZE for XWayland, GTK 3/4 (gsettings and settings.ini) and KDE/Qt (kcminputrc). Cursor size is saved in settings.json and written to hypr-cursor.lua so it survives reboot."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontXs; wrapMode: Text.WordWrap
+        }
+    }
+
+    SettingsSection {
+        id: cursorInstalled
+        visible: pg.tab === "cursors"
+        title: "Installed cursor themes"
+        subtitle: "Discovered from ~/.local/share/icons and the system icon directories. Click a card to apply it."
+        property string query: ""
+        readonly property var all: Settings.desktopInfo.cursors || []
+        readonly property var shown: all.filter(function (x) {
+            return query === "" || (x.name || "").toLowerCase().indexOf(query.toLowerCase()) >= 0 || (x.id || "").toLowerCase().indexOf(query.toLowerCase()) >= 0
+        })
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            UiField { Layout.fillWidth: true; code: Theme.ic.search; placeholder: "Search installed cursor themes"; onEdited: cursorInstalled.query = text }
+            UiBtn { visible: Settings.desktopListing; label: "Refresh"; code: Theme.ic.refresh; onClicked: Settings.listDesktop() }
+        }
+        Text {
+            visible: Settings.desktopListing && cursorInstalled.all.length === 0
+            text: "Scanning installed cursor themes..."
             color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+        Text {
+            visible: !Settings.desktopListing && cursorInstalled.all.length === 0
+            text: "No cursor themes were found. Use \"Get more cursor themes\" below."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+        Text {
+            visible: cursorInstalled.all.length > 0 && cursorInstalled.shown.length === 0
+            text: "No installed cursor themes match \"" + cursorInstalled.query + "\"."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm
         }
         GridLayout {
             Layout.fillWidth: true
             columns: pg.cols
             columnSpacing: 8; rowSpacing: 8
             Repeater {
-                model: Settings.desktopInfo.cursors || []
+                model: cursorInstalled.shown
                 delegate: Card {
                     id: cc
                     required property var modelData
@@ -584,42 +846,174 @@ SettingsPage {
     }
 
     SettingsSection {
+        id: cursorShop
         visible: pg.tab === "cursors"
-        title: "Get more cursors"
-        subtitle: "Free cursor themes, ready to use after a quick download."
+        title: "Get more cursor themes"
+        subtitle: "Bibata, Breeze, Adwaita, Nordzy, Capitaine, Qogir and more. Downloads stay in ~/.local/share/icons; repository packages are installed only after confirmation."
+        property string query: ""
+        property string filter: "available"
+        readonly property var all: StyleLibrary.cursors
+        readonly property var matching: all.filter(function (x) {
+            return query === "" || (x.name || "").toLowerCase().indexOf(query.toLowerCase()) >= 0 || (x.desc || "").toLowerCase().indexOf(query.toLowerCase()) >= 0
+        })
+        readonly property var available: matching.filter(function (x) { return !x.installed })
+        readonly property var installed: matching.filter(function (x) { return x.installed })
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            UiField { Layout.fillWidth: true; code: Theme.ic.search; placeholder: "Search cursor themes, e.g. Bibata, Nordzy, Qogir"; onEdited: cursorShop.query = text }
+            UiBtn { label: "Refresh list"; code: Theme.ic.refresh; onClicked: StyleLibrary.load(true) }
+        }
+        ChipRow {
+            current: cursorShop.filter
+            options: [
+                { id: "available", label: "Available  " + cursorShop.available.length },
+                { id: "installed", label: "Installed  " + cursorShop.installed.length },
+                { id: "all", label: "All  " + cursorShop.matching.length }
+            ]
+            onPicked: optionId => cursorShop.filter = optionId
+        }
+        Text {
+            visible: !StyleLibrary.loaded
+            text: StyleLibrary.catalogError !== "" ? StyleLibrary.catalogError : "Loading the cursor catalogue..."
+            color: StyleLibrary.catalogError !== "" ? Theme.red : Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+        UiBtn { visible: StyleLibrary.catalogError !== ""; label: "Retry"; code: Theme.ic.refresh; onClicked: StyleLibrary.load(true) }
+        Text {
+            visible: StyleLibrary.loaded && StyleLibrary.platform.canInstallPackages === false
+            Layout.fillWidth: true
+            text: "Repository installation is unavailable on this system (needs Arch/CachyOS, pacman and pkexec). Downloads still work."
+            color: Theme.yellow; font.family: Theme.font; font.pixelSize: Theme.fontXs; wrapMode: Text.WordWrap
+        }
+
+        Text {
+            visible: cursorShop.filter !== "installed" && cursorShop.available.length > 0
+            text: "Available to install"
+            color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold
+        }
         GridLayout {
+            visible: cursorShop.filter !== "installed"
             Layout.fillWidth: true
             columns: pg.cols
             columnSpacing: 8; rowSpacing: 8
             Repeater {
-                model: StyleLibrary.cursors
+                model: cursorShop.available
                 delegate: Card {
                     id: cu
                     required property var modelData
-                    chosen: modelData.installed && modelData.themes.indexOf(Settings.cursorTheme) >= 0
-                    implicitHeight: 64
-                    RowLayout {
-                        anchors { fill: parent; margins: 10 }
-                        spacing: 10
-                        Rectangle {
-                            implicitWidth: 30; implicitHeight: 30; radius: 15
-                            color: cu.modelData.tone
-                            border.width: 1; border.color: Qt.alpha(Theme.text, 0.25)
-                            Glyph { anchors.centerIn: parent; code: Theme.ic.cursor; size: 16; color: Qt.color(cu.modelData.tone).hslLightness > 0.6 ? "#111111" : "#f5f5f5" }
-                        }
-                        ColumnLayout {
+                    readonly property bool pkgPending: StyleLibrary.isPending("pkg", modelData.id)
+                    readonly property bool dlPending: StyleLibrary.isPending("cursor", modelData.id)
+                    implicitHeight: cuCol.implicitHeight + 20
+                    ColumnLayout {
+                        id: cuCol
+                        anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
+                        spacing: 4
+                        RowLayout {
                             Layout.fillWidth: true
-                            spacing: 1
-                            Text { Layout.fillWidth: true; text: cu.modelData.name; color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold; elide: Text.ElideRight }
-                            Text { Layout.fillWidth: true; text: cu.modelData.desc; color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm; elide: Text.ElideRight }
+                            spacing: 10
+                            Rectangle {
+                                implicitWidth: 30; implicitHeight: 30; radius: 15
+                                color: cu.modelData.tone
+                                border.width: 1; border.color: Qt.alpha(Theme.text, 0.25)
+                                Glyph { anchors.centerIn: parent; code: Theme.ic.cursor; size: 16; color: Qt.color(cu.modelData.tone).hslLightness > 0.6 ? "#111111" : "#f5f5f5" }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 1
+                                Text { Layout.fillWidth: true; text: cu.modelData.name; color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                                Text { Layout.fillWidth: true; text: cu.modelData.desc; color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm; elide: Text.ElideRight }
+                            }
                         }
-                        UiBtn {
-                            visible: cu.modelData.installed && cu.modelData.themes.length > 0
-                            label: cu.chosen ? "In use" : "Use"
-                            selected: cu.chosen
-                            onClicked: Settings.setDesktop("cursorTheme", cu.modelData.themes[0])
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Badge { visible: cu.modelData.pkg !== "" && cu.modelData.pkgAvailable; text: "repository package"; tone: Theme.green }
+                            Badge { visible: cu.modelData.pkg !== "" && !cu.modelData.pkgAvailable; text: "package unavailable"; tone: Theme.yellow }
+                            Badge { visible: cu.pkgPending; text: "Installing package..."; tone: Theme.yellow }
+                            Badge { visible: cu.dlPending; text: "Downloading..."; tone: Theme.yellow }
                         }
-                        JobState { kind: "cursor"; arg: cu.modelData.id; installed: cu.modelData.installed; onInstall: StyleLibrary.installCursor(cu.modelData) }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Item { Layout.fillWidth: true }
+                            ConfirmBtn {
+                                visible: !!cu.modelData.pkg && cu.modelData.pkgAvailable && StyleLibrary.platform.canInstallPackages && !cu.pkgPending && !cu.dlPending
+                                baseLabel: "Install package"
+                                confirmLabel: "Confirm package install"
+                                code: Theme.ic.pack
+                                onConfirmed: StyleLibrary.installPackage(cu.modelData, "cursor")
+                            }
+                            ConfirmBtn {
+                                visible: cu.modelData.downloadable && !cu.pkgPending && !cu.dlPending
+                                baseLabel: "Download"
+                                confirmLabel: "Confirm download"
+                                code: Theme.ic.download
+                                onConfirmed: StyleLibrary.installCursor(cu.modelData)
+                            }
+                            Badge {
+                                visible: !cu.modelData.downloadable && !(!!cu.modelData.pkg && cu.modelData.pkgAvailable)
+                                text: "Not available here"; tone: Theme.red
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Text {
+            visible: StyleLibrary.loaded && cursorShop.filter === "available" && cursorShop.available.length === 0
+            text: cursorShop.matching.length === 0 ? "No cursor themes match \"" + cursorShop.query + "\"." : "Every matching cursor theme is already installed."
+            color: Theme.dim; font.family: Theme.font; font.pixelSize: Theme.fontSm
+        }
+
+        Text {
+            visible: cursorShop.filter !== "available" && cursorShop.installed.length > 0
+            text: "Installed from the store"
+            color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold
+        }
+        GridLayout {
+            visible: cursorShop.filter !== "available"
+            Layout.fillWidth: true
+            columns: pg.cols
+            columnSpacing: 8; rowSpacing: 8
+            Repeater {
+                model: cursorShop.installed
+                delegate: Card {
+                    id: cug
+                    required property var modelData
+                    readonly property bool inUse: (modelData.themes || []).indexOf(Settings.cursorTheme) >= 0
+                    chosen: cug.inUse
+                    implicitHeight: cugCol.implicitHeight + 20
+                    ColumnLayout {
+                        id: cugCol
+                        anchors { left: parent.left; right: parent.right; top: parent.top; margins: 10 }
+                        spacing: 4
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Rectangle {
+                                implicitWidth: 26; implicitHeight: 26; radius: 13
+                                color: cug.modelData.tone
+                                border.width: 1; border.color: Qt.alpha(Theme.text, 0.25)
+                                Glyph { anchors.centerIn: parent; code: Theme.ic.cursor; size: 14; color: Qt.color(cug.modelData.tone).hslLightness > 0.6 ? "#111111" : "#f5f5f5" }
+                            }
+                            Text { Layout.fillWidth: true; text: cug.modelData.name; color: Theme.text; font.family: Theme.font; font.pixelSize: Theme.fontMd; font.weight: Font.DemiBold; elide: Text.ElideRight }
+                            Badge { text: cug.inUse ? "In use" : "Installed"; tone: cug.inUse ? Theme.green : Theme.muted }
+                            ConfirmTrash { visible: !!cug.modelData.downloaded && !cug.inUse; boxSize: 22; onConfirmed: StyleLibrary.removeThemes("cursor", cug.modelData.themes) }
+                        }
+                        Text { Layout.fillWidth: true; text: (cug.modelData.themes || []).join(", "); color: Theme.muted; font.family: Theme.font; font.pixelSize: Theme.fontSm; elide: Text.ElideRight }
+                        Flow {
+                            Layout.fillWidth: true
+                            spacing: 6
+                            Repeater {
+                                model: cug.modelData.themes || []
+                                delegate: UiBtn {
+                                    required property string modelData
+                                    label: modelData
+                                    selected: Settings.cursorTheme === modelData
+                                    onClicked: Settings.setDesktop("cursorTheme", modelData)
+                                }
+                            }
+                        }
                     }
                 }
             }

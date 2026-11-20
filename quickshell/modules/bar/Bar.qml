@@ -42,8 +42,7 @@ PanelWindow {
     }
 
     Item {
-        // Both side edges sit 0.5 px further in than the top/bottom.
-        anchors { fill: parent; topMargin: Theme.barMargin; bottomMargin: Theme.barMargin; leftMargin: Theme.barSideInset + 0.5; rightMargin: Theme.barSideInset + 0.5 }
+        anchors { fill: parent; topMargin: Theme.barMargin; bottomMargin: Theme.barMargin; leftMargin: Theme.barSideInset; rightMargin: Theme.barSideInset }
 
         Rectangle {
             visible: Settings.barStyle !== "pills" && Theme.styleMode === "solid"

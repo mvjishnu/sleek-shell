@@ -117,7 +117,11 @@ When you change the palette, `quickshell/scripts/apply-theme.sh` (needs `jq`) re
 
 Everything else in those files is kept. Each app can be turned off, or given its own palette, in Settings → Appearance → Apps.
 Fonts, icons and cursors you pick in Settings → Fonts, icons & cursors are written to GTK (`settings.ini`, `gsettings`),
-KDE (`kdeglobals`) and `~/.config/fontconfig/conf.d/50-sleek-shell.conf`.
+KDE (`kdeglobals`, `kcminputrc`), Rofi (font in `rice.rasi`, `icon-theme` in `config.rasi`) and
+`~/.config/fontconfig/conf.d/50-sleek-shell.conf`. The cursor theme and size are also written to
+`~/.config/sleek-shell/hypr-cursor.lua` (read by Hyprland at startup, which exports `XCURSOR_THEME` /
+`XCURSOR_SIZE` and `HYPRCURSOR_*`) and applied live with `hyprctl setcursor`. The size is stored in
+`settings.json` as `cursorSize`, so it survives Quickshell restarts and reboots.
 
 If you keep your own `kitty.conf` or rofi `config.rasi`, the installer does not replace it. To follow the theme, add
 `include theme.conf` (kitty) or `@theme "~/.config/rofi/themes/rice.rasi"` (rofi).

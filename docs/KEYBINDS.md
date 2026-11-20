@@ -44,6 +44,16 @@ Every monitor has its own workspaces 1–10.
 | `SUPER+SHIFT+1`…`0` | Move window to workspace 1–10 of this monitor |
 | `SUPER+X` / `SUPER+Z` | Next / previous workspace |
 
+## Monitors (act on the monitor under the cursor)
+Monitors are packed left to right with no gaps whenever one is plugged in or removed; requested modes are checked
+against the modes each monitor reports. Order, rotation and mode are kept in `~/.local/state/hypr/monitor-layout.lua`.
+| Keys | Action |
+|---|---|
+| `SUPER+ALT+Left` / `SUPER+ALT+Right` | Move this monitor one place left / right |
+| `SUPER+ALT+R` | Rotate this monitor 90° |
+| `SUPER+ALT+P` | Reset this monitor (native mode, auto scale, no rotation) |
+| `SUPER+ALT+M` | Cycle extend → mirror laptop → external only → laptop only |
+
 ## Desktop and media
 | Keys | Action |
 |---|---|

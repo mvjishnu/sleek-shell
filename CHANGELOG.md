@@ -5,6 +5,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Ver
 
 ## [Unreleased]
 
+### Added
+- **Dynamic, hotplug-safe monitor manager** (`hypr/modules/monitors.lua`): modes are checked against what each
+  monitor reports, settings follow the physical monitor, active monitors are packed left to right, and
+  `SUPER+ALT+Left/Right/R/P/M` move, rotate, reset and cycle display modes. State is kept in
+  `~/.local/state/hypr/monitor-layout.lua`.
+- **Fonts, icons & cursors page rework**: search, installed/available store split, confirmed `pkexec pacman`
+  installs of repository icon/cursor themes, and a one-click removal of Tamil-only font families.
+- Rofi follows the chosen icon theme and gets a themed border/radius; the cursor is also written to `~/.icons`
+  and `~/.Xresources` for XWayland apps.
+- `udiskie` automount at login (optional; skipped when not installed).
+- zsh: `crun` (build and run a C/C++ file) and `code` → `codium` when only VSCodium is installed.
+- README screenshots of the desktop, panels, launcher, overview, settings and power menu.
+
+### Changed
+- The Arch package set no longer installs `ttf-indic-otf` (Tamil/Indic fonts).
+- Refreshed Powerlevel10k defaults (no frame).
+
+### Fixed
+- Settings → Keyboard showed the monitor shortcuts as raw Lua source; they now have proper labels and the
+  action reads "Built-in Lua action".
+- `remove-fonts.sh` (run as root through pkexec) now only accepts font files under the system font
+  directories and a backup directory under `/var/backups/sleek-shell/`.
+- Bar side edges no longer sit 0.5 px further in than the top and bottom.
+
 ## [0.3.0] - 2026-11-13
 
 ### Added

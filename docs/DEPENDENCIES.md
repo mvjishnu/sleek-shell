@@ -82,8 +82,10 @@ packages: it only printed a command, and rows marked _not checked_ were missing 
 | power-profiles | power profile switch | optional | `power-profiles-daemon` | `power-profiles-daemon` | `power-profiles-daemon` | `power-profiles-daemon` | checked |
 | pipewire-pulse | PulseAudio apps and pavucontrol | optional | `pipewire-pulse` | `pipewire-pulseaudio` | `pipewire-pulse` | `pipewire-pulseaudio` | **not checked** |
 | pavucontrol | "More audio settings" button | optional | `pavucontrol` | `pavucontrol` | `pavucontrol` | `pavucontrol` | checked |
+| udiskie | automount removable drives with a notification | optional | `udiskie` | `udiskie` | `udiskie` | `udiskie` | **not checked** |
 | gsettings | GTK font/icon settings | optional | `glib2` | `glib2` | `libglib2.0-bin` | `glib2-tools` | checked |
 | kwriteconfig6 | Qt/KDE font/icon settings | optional | `kconfig` | `kf6-kconfig` | `libkf6config-bin` | `kf6-kconfig` | checked |
+| pkexec / polkit | confirmed repository installs of icon / cursor themes | optional | `polkit` | `polkit` | `pkexec` | `polkit` | **not checked** |
 | gtk-launch | open default browser/file manager | optional | `gtk3` | `gtk3` | `libgtk-3-bin` | `gtk3-tools` | checked |
 | nwg-displays | monitor layout editor | optional | `nwg-displays` | _not packaged_ | `nwg-displays` | `nwg-displays` | checked, names changed |
 | cava | audio visualiser in the media panel (sleeps when idle) | optional | `cava` | `cava` | `cava` | `cava` | **not checked** |

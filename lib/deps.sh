@@ -48,8 +48,10 @@ nm-editor|cmd:nm-connection-editor|optional|nm-connection-editor|nm-connection-e
 power-profiles|cmd:powerprofilesctl|optional|power-profiles-daemon|power-profiles-daemon|power-profiles-daemon|power-profiles-daemon|power profile switch
 pipewire-pulse|cmd:pipewire-pulse|optional|pipewire-pulse|pipewire-pulseaudio|pipewire-pulse|pipewire-pulseaudio|PulseAudio apps and pavucontrol
 pavucontrol|cmd:pavucontrol|optional|pavucontrol|pavucontrol|pavucontrol|pavucontrol|"More audio settings" button
+udiskie|cmd:udiskie|optional|udiskie|udiskie|udiskie|udiskie|automount removable drives with a notification
 gsettings|cmd:gsettings|optional|glib2|glib2|libglib2.0-bin|glib2-tools|GTK font/icon settings
 kwriteconfig6|cmd:kwriteconfig6|optional|kconfig|kf6-kconfig|libkf6config-bin|kf6-kconfig|Qt/KDE font/icon settings
+pkexec|cmd:pkexec|optional|polkit|polkit|pkexec|polkit|confirmed repository installs of icon / cursor themes
 gtk-launch|cmd:gtk-launch|optional|gtk3|gtk3|libgtk-3-bin|gtk3-tools|open default browser/file manager
 nwg-displays|cmd:nwg-displays|optional|nwg-displays|-|nwg-displays|nwg-displays|monitor layout editor
 imagemagick|cmd:magick/convert|optional|imagemagick|ImageMagick|imagemagick|ImageMagick|icon theme previews

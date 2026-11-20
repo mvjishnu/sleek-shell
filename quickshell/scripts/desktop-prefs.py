@@ -18,7 +18,7 @@
   desktop-prefs.py cursor THEME SIZE
       Only the cursor part of apply.
 """
-import json, os, re, shutil, struct, subprocess, sys, zlib
+import json, os, re, shutil, struct, subprocess, sys, time, zlib
 
 HOME = os.path.expanduser("~")
 CFG = os.environ.get("XDG_CONFIG_HOME", HOME + "/.config")
@@ -50,6 +50,33 @@ SAMPLES = [
 ]
 MONO_HINT = re.compile(r"mono|code|consol|courier|hack|meslo|terminus|fixed", re.I)
 NOISE = re.compile(r"^(.* CJK .*|.*Math.*|Noto (Sans|Serif|Kufi|Naskh|Nastaliq|Rashi|Music|Znamenny|Traditional|Fangsong)\b(?! (Mono|Display)$)(?!$)|Material (Symbols|Icons)|Noto Color Emoji|.*Nerd Font (Mono|Propo)$|.*NL Nerd Font|Symbols Nerd Font)", re.I)
+# Families whose *identity* is a Tamil-script face.  Do not filter every font
+# that happens to contain Tamil glyphs: multilingual families such as Noto Sans
+# or DejaVu Sans are useful for the rest of the desktop and must stay.
+TAMIL_FONT_PAT = re.compile(
+    r"(?:^|[\s_.-])tamil(?:$|[\s_.-])"
+    r"|(?:^|[\s_.-])(?:tamu|tscu)(?:_|[\s_.-]|$)"
+    r"|(?:^|[\s_.-])akruti\s*tml\d*(?:$|[\s_.-])"
+    r"|(?:^|[\s_.-])(?:latha|vaigai|senthamil|bamini|vanavil|murasu|suntommy|saiindira|meera\s+inimai|pavanam)(?:$|[\s_.-])"
+    r"|(?:^|[\s_.-])(?:kavivanar|baloo\s+thambi|arima|hind\s+madurai|mukta\s+malar|catamaran|coiny|anek\s+tamil|shree\s+tam)(?:$|[\s_.-])",
+    re.I
+)
+
+
+def is_tamil_family(fam):
+    """True only for a family that identifies itself as a Tamil-script face."""
+    return bool(fam and TAMIL_FONT_PAT.search(fam))
+
+
+def unique_families(names):
+    """Case-insensitive duplicate removal, keeping the first spelling."""
+    seen, out = set(), []
+    for name in names:
+        key = name.casefold()
+        if name and key not in seen:
+            seen.add(key)
+            out.append(name)
+    return out
 
 
 def run(cmd, timeout=6):
@@ -63,18 +90,20 @@ def run(cmd, timeout=6):
 # ------------------------------------------------------------------------------------- fonts
 def fonts():
     rc, out, _ = run(["fc-list", ":lang=en", "--format", "%{family[0]}\t%{spacing}\n"])
-    fams, mono = set(), set()
+    chosen, mono_keys = {}, set()          # casefolded family -> display spelling
     if rc == 0:
         for line in out.splitlines():
             fam, _, sp = line.partition("\t")
             fam = fam.strip()
             if not fam or NOISE.match(fam):
                 continue
-            fams.add(fam)
+            key = fam.casefold()
+            chosen.setdefault(key, fam)
             if sp.strip() in ("90", "100") or MONO_HINT.search(fam):
-                mono.add(fam)
-    ui = sorted(fams - {f for f in mono if MONO_HINT.search(f)}, key=str.lower)
-    return ui, sorted(mono, key=str.lower), fams
+                mono_keys.add(key)
+    ui = sorted([f for k, f in chosen.items() if k not in mono_keys or not MONO_HINT.search(f)], key=str.lower)
+    mono = sorted([f for k, f in chosen.items() if k in mono_keys], key=str.lower)
+    return ui, mono, set(chosen.values())
 
 
 # --------------------------------------------------------------------------------- icon themes
@@ -334,7 +363,81 @@ def library(ui, mono):
         if fam.strip() and user_owned(f):
             user.add(fam.strip())
     monos = set(mono)
-    return [{"f": f, "c": font_category(f, monos, gf), "user": f in user} for f in sorted(set(ui) | monos, key=str.lower)]
+    fams = unique_families(sorted(set(ui) | monos, key=str.lower))
+    return [{"f": f, "c": font_category(f, monos, gf), "user": f in user} for f in fams]
+
+
+def tamil_fonts():
+    """Tamil-only families that are still installed, with the files that provide them."""
+    rc, out, _ = run(["fc-list", "--format", "%{family[0]}\t%{file}\n"], timeout=15)
+    found = {}
+    if rc == 0:
+        for line in out.splitlines():
+            fam, _, path = line.partition("\t")
+            fam, path = fam.strip(), path.strip()
+            if fam and path and is_tamil_family(fam):
+                found.setdefault(fam, set()).add(path)
+    res = []
+    for fam in sorted(found, key=str.lower):
+        files = sorted(found[fam])
+        user = [f for f in files if user_font_file(f)]
+        res.append({"f": fam, "count": len(files), "user": len(user), "system": len(files) - len(user)})
+    return res
+
+
+def user_font_file(path):
+    real = os.path.realpath(path)
+    return any(real.startswith(os.path.realpath(b) + os.sep) for b in (DATA + "/fonts", HOME + "/.fonts"))
+
+
+def remove_tamil():
+    """Delete every installed Tamil-only family.  User fonts are removed directly; system fonts
+    are moved to a timestamped backup by scripts/remove-fonts.sh through pkexec."""
+    rc, out, _ = run(["fc-list", "--format", "%{family[0]}\t%{file}\n"], timeout=15)
+    files, families = set(), set()
+    if rc == 0:
+        for line in out.splitlines():
+            fam, _, path = line.partition("\t")
+            fam, path = fam.strip(), path.strip()
+            if fam and path and is_tamil_family(fam):
+                families.add(fam)
+                files.add(path)
+    if not files:
+        return {"ok": True, "removed": 0, "families": [], "backup": "", "errors": []}
+    user = sorted(f for f in files if user_font_file(f))
+    system = sorted(f for f in files if not user_font_file(f))
+    removed, errors, backup = [], [], ""
+    for f in user:
+        try:
+            os.remove(f)
+            removed.append(f)
+        except OSError as e:
+            errors.append("%s: %s" % (f, e))
+    if user:
+        dirs = sorted({os.path.dirname(f) for f in user})
+        for d in dirs:
+            if shutil.which("fc-cache"):
+                run(["fc-cache", "-f", d], timeout=120)
+    if system:
+        helper = os.path.join(os.path.dirname(os.path.abspath(__file__)), "remove-fonts.sh")
+        backup = "/var/backups/sleek-shell/tamil-fonts/" + time.strftime("%Y%m%d-%H%M%S")
+        if not os.path.isfile(helper):
+            errors.append("Missing helper: " + helper)
+        elif not shutil.which("pkexec"):
+            errors.append("System Tamil fonts need pkexec (polkit); install polkit or remove them manually")
+        else:
+            try:
+                p = subprocess.run(["pkexec", helper, backup] + system, capture_output=True, text=True, timeout=180)
+                if p.returncode == 0:
+                    removed.extend(system)
+                else:
+                    errors.append((p.stderr or p.stdout or "Administrator approval was cancelled").strip())
+            except (OSError, subprocess.TimeoutExpired) as e:
+                errors.append("System fonts: %s" % e)
+    if shutil.which("fc-cache"):
+        run(["fc-cache", "-f"], timeout=180)
+    return {"ok": not errors, "removed": len(removed), "families": sorted(families, key=str.lower),
+            "backup": backup, "errors": errors}
 
 
 # ------------------------------------------------------------------------------------ current
@@ -479,19 +582,33 @@ def apply(ui, ui_size, mono, mono_size, icons, cursor=None, cursor_size=None):
     else:
         res.skipped.append("kitty (no config dir)")
 
-    # Rofi: only the global font in the "* { }" block and the icon theme
+    # Rofi: font in ~/.config/rofi/themes/rice.rasi and icon-theme in ~/.config/rofi/config.rasi
     rasi = CFG + "/rofi/themes/rice.rasi"
     if os.path.exists(rasi):
-        t = open(rasi, encoding="utf-8").read()
-        m = re.search(r"^\*\s*\{.*?^\}", t, re.S | re.M)
-        if m:
-            block = re.sub(r'(^\s*font:\s*)"[^"]*";', lambda x: '%s"%s %d";' % (x.group(1), ui, ui_size + 2), m.group(0), count=1, flags=re.M)
-            write_if_changed(rasi, t[:m.start()] + block + t[m.end():], res, "rofi font")
+        try:
+            t = open(rasi, encoding="utf-8").read()
+            m = re.search(r"^\*\s*\{.*?^\}", t, re.S | re.M)
+            if m:
+                block = re.sub(r'(^\s*font:\s*)"[^"]*";', lambda x: '%s"%s %d";' % (x.group(1), ui, ui_size + 2), m.group(0), count=1, flags=re.M)
+                write_if_changed(rasi, t[:m.start()] + block + t[m.end():], res, "rofi font")
+        except OSError as e:
+            res.errors.append("rofi rice.rasi: %s" % e)
     rcfg = CFG + "/rofi/config.rasi"
     if os.path.exists(rcfg):
-        t = open(rcfg, encoding="utf-8").read()
-        nt = re.sub(r'(^\s*icon-theme:\s*)"[^"]*";', lambda x: '%s"%s";' % (x.group(1), icons), t, count=1, flags=re.M)
-        write_if_changed(rcfg, nt, res, "rofi icon-theme")
+        try:
+            t = open(rcfg, encoding="utf-8").read()
+            if re.search(r'^\s*icon-theme:\s*"[^"]*";', t, re.M):
+                nt = re.sub(r'(^\s*icon-theme:\s*)"[^"]*";', lambda x: '%s"%s";' % (x.group(1), icons), t, count=1, flags=re.M)
+            else:
+                m_conf = re.search(r'(configuration\s*\{)', t)
+                if m_conf:
+                    pos = m_conf.end()
+                    nt = t[:pos] + ('\n    icon-theme: "%s";' % icons) + t[pos:]
+                else:
+                    nt = ('configuration {\n    icon-theme: "%s";\n}\n' % icons) + t
+            write_if_changed(rcfg, nt, res, "rofi icon-theme")
+        except OSError as e:
+            res.errors.append("rofi config.rasi: %s" % e)
 
     if cursor:
         apply_cursor(cursor, cursor_size, res)
@@ -520,9 +637,9 @@ def apply_cursor(theme, size, res):
             if run(["kreadconfig6", "--file", "kcminputrc", "--group", "Mouse", "--key", k])[1] != val:
                 rc, _, err = run(["kwriteconfig6", "--notify", "--file", "kcminputrc", "--group", "Mouse", "--key", k, val])
                 (res.changed.append("kcminputrc Mouse/" + k) if rc == 0 else res.errors.append("kcminputrc: " + err))
-    write_if_changed(DATA + "/icons/default/index.theme",
-                     "[Icon Theme]\nName=Default\nComment=Default cursor theme (set by Sleek Shell Settings)\nInherits=%s\n" % theme,
-                     res, "icons/default cursor")
+    default_theme = ("[Icon Theme]\nName=Default\nComment=Default cursor theme (set by Sleek Shell Settings)\nInherits=%s\n" % theme)
+    write_if_changed(DATA + "/icons/default/index.theme", default_theme, res, "icons/default cursor")
+    write_if_changed(HOME + "/.icons/default/index.theme", default_theme, res, "home icons/default cursor")
     state = ("-- Generated by Sleek Shell Settings. Do not edit by hand; use Settings (SUPER+I).\n"
              "return { theme = \"%s\", size = %d }\n") % (theme, size)
     touched = write_if_changed(CFG + "/sleek-shell/hypr-cursor.lua", state, res, "hyprland cursor") or touched
@@ -533,13 +650,28 @@ def apply_cursor(theme, size, res):
         run(["hyprctl", "eval", "require('sleekshell.cursor').apply()"])
     if touched and shutil.which("dbus-update-activation-environment"):
         run(["dbus-update-activation-environment", "--systemd", "XCURSOR_THEME=" + theme, "XCURSOR_SIZE=%d" % size])
+    xres = HOME + "/.Xresources"
+    if os.path.exists(xres):
+        try:
+            xt = open(xres, encoding="utf-8").read()
+            xt = re.sub(r"^Xcursor\.theme:.*$", "Xcursor.theme: " + theme, xt, flags=re.M)
+            xt = re.sub(r"^Xcursor\.size:.*$", "Xcursor.size: %d" % size, xt, flags=re.M)
+            if "Xcursor.theme:" not in xt:
+                xt = xt.rstrip() + "\nXcursor.theme: %s\n" % theme
+            if "Xcursor.size:" not in xt:
+                xt = xt.rstrip() + "\nXcursor.size: %d\n" % size
+            write_if_changed(xres, xt, res, "Xresources cursor")
+            if shutil.which("xrdb"):
+                run(["xrdb", "-merge", xres])
+        except OSError:
+            pass
 
 
 def main(argv):
     if len(argv) >= 2 and argv[1] == "list":
         ui, mono, _ = fonts()
         print(json.dumps({"ok": True, "ui": ui, "mono": mono, "library": library(ui, mono), "icons": icon_themes(),
-                          "cursors": cursor_themes(), "current": current()}))
+                          "cursors": cursor_themes(), "current": current(), "tamil": tamil_fonts()}))
         return 0
     if len(argv) in (7, 9) and argv[1] == "apply":
         try:
@@ -556,7 +688,14 @@ def main(argv):
             res.errors.append(str(e))
         print(json.dumps({"ok": not res.errors, "changed": res.changed, "skipped": res.skipped, "errors": res.errors}))
         return 0 if not res.errors else 1
-    print(json.dumps({"ok": False, "error": "usage: list | apply UI SIZE MONO SIZE ICONS [CURSOR SIZE] | cursor THEME SIZE"}))
+    if len(argv) == 2 and argv[1] == "remove-tamil":
+        try:
+            r = remove_tamil()
+        except (ValueError, OSError) as e:
+            r = {"ok": False, "error": str(e)}
+        print(json.dumps(r))
+        return 0 if r.get("ok") else 1
+    print(json.dumps({"ok": False, "error": "usage: list | apply UI SIZE MONO SIZE ICONS [CURSOR SIZE] | cursor THEME SIZE | remove-tamil"}))
     return 2
 
 

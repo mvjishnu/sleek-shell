@@ -261,6 +261,9 @@ def humanize(action, env):
     if m:
         v = eval_concat(m.group(1), env)
         return "Shell: " + (v.split(":", 1)[-1] if v else "global shortcut"), "global", v or ""
+    if re.match(r"function\s*\(", a):
+        # Inline Lua callbacks (e.g. the monitor manager): never show their source as the action text.
+        return "Built-in Lua action", "dispatch", a
     return a.replace("hl.dsp.", ""), "dispatch", a
 
 

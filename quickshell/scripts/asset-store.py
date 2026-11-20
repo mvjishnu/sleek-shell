@@ -40,6 +40,20 @@ UA = "curl/8.10.1"
 CAT = {"Sans Serif": "sans", "Serif": "serif", "Handwriting": "hand", "Display": "display", "Monospace": "mono"}
 FONT_EXT = (".ttf", ".otf", ".ttc")
 ARCHIVE_EXT = (".zip", ".tar", ".tar.gz", ".tgz", ".tar.xz", ".txz", ".tar.bz2", ".tbz2", ".tar.zst")
+# Tamil-script family identities only.  Families that merely contain Tamil
+# glyphs (Noto Sans, DejaVu Sans, …) remain available for other scripts.
+TAMIL_FONT_PAT = re.compile(
+    r"(?:^|[\s_.-])tamil(?:$|[\s_.-])"
+    r"|(?:^|[\s_.-])(?:tamu|tscu)(?:_|[\s_.-]|$)"
+    r"|(?:^|[\s_.-])akruti\s*tml\d*(?:$|[\s_.-])"
+    r"|(?:^|[\s_.-])(?:latha|vaigai|senthamil|bamini|vanavil|murasu|suntommy|saiindira|meera\s+inimai|pavanam)(?:$|[\s_.-])"
+    r"|(?:^|[\s_.-])(?:kavivanar|baloo\s+thambi|arima|hind\s+madurai|mukta\s+malar|catamaran|coiny|anek\s+tamil|shree\s+tam)(?:$|[\s_.-])",
+    re.I
+)
+
+
+def is_tamil_font(fam):
+    return bool(fam and TAMIL_FONT_PAT.search(fam))
 
 
 def gh_src(repo, ref="HEAD"):
@@ -55,16 +69,28 @@ def gh_rel(repo, asset):
 # archive (dirs: {path-in-archive: installed-name}, "*" globs keep their own name); release = any
 # theme folders found inside a release archive. provides = theme folder names that mark it installed.
 ICONS = [
+    {"id": "papirus", "name": "Papirus", "desc": "Clean, pixel-perfect icon theme with high contrast", "tone": "blue", "mb": 35,
+     "kind": "script", "repo": "PapirusDevelopmentTeam/papirus-icon-theme", "pkg": "papirus-icon-theme",
+     "provides": ["Papirus", "Papirus-Dark", "Papirus-Light"]},
+    {"id": "tela", "name": "Tela", "desc": "Flat, modern icon theme with sharp corners", "tone": "blue", "mb": 25,
+     "kind": "script", "repo": "vinceliuice/Tela-icon-theme", "provides": ["Tela", "Tela-dark"]},
     {"id": "tela-circle", "name": "Tela circle", "desc": "Flat, colourful circular app icons", "tone": "blue", "mb": 25,
-     "kind": "script", "repo": "vinceliuice/Tela-circle-icon-theme", "provides": ["Tela-circle", "Tela-circle-dark"]},
+     "kind": "script", "repo": "vinceliuice/Tela-circle-icon-theme", "pkg": "tela-circle-icon-theme-standard",
+     "provides": ["Tela-circle", "Tela-circle-dark"]},
     {"id": "tela-circle-dracula", "name": "Tela circle Dracula", "desc": "Tela circle in Dracula purple", "tone": "purple", "mb": 25,
      "kind": "script", "repo": "vinceliuice/Tela-circle-icon-theme", "args": ["dracula"], "provides": ["Tela-circle-dracula", "Tela-circle-dracula-dark"]},
     {"id": "tela-circle-nord", "name": "Tela circle Nord", "desc": "Tela circle in frosty Nord blue", "tone": "cyan", "mb": 25,
      "kind": "script", "repo": "vinceliuice/Tela-circle-icon-theme", "args": ["nord"], "provides": ["Tela-circle-nord", "Tela-circle-nord-dark"]},
     {"id": "colloid", "name": "Colloid", "desc": "Soft, rounded Material-style icons", "tone": "blue", "mb": 20,
      "kind": "script", "repo": "vinceliuice/Colloid-icon-theme", "provides": ["Colloid", "Colloid-Dark", "Colloid-Light"]},
+    {"id": "fluent", "name": "Fluent", "desc": "Microsoft Fluent design style icons", "tone": "cyan", "mb": 30,
+     "kind": "script", "repo": "vinceliuice/Fluent-icon-theme", "provides": ["Fluent", "Fluent-dark", "Fluent-light"]},
+    {"id": "numix", "name": "Numix", "desc": "Rich, colourful icons with rounded geometry", "tone": "pink", "mb": 20,
+     "kind": "copy", "repo": "numixproject/numix-icon-theme", "dirs": {"Numix": "Numix", "Numix-Light": "Numix-Light"},
+     "provides": ["Numix", "Numix-Light"]},
     {"id": "qogir", "name": "Qogir", "desc": "Clean flat icons with a light touch", "tone": "cyan", "mb": 15,
-     "kind": "script", "repo": "vinceliuice/Qogir-icon-theme", "provides": ["Qogir", "Qogir-Dark", "Qogir-Light"]},
+     "kind": "script", "repo": "vinceliuice/Qogir-icon-theme", "pkg": "qogir-icon-theme",
+     "provides": ["Qogir", "Qogir-Dark", "Qogir-Light"]},
     {"id": "whitesur", "name": "WhiteSur", "desc": "macOS Big Sur look-alike", "tone": "blue", "mb": 45,
      "kind": "script", "repo": "vinceliuice/WhiteSur-icon-theme", "provides": ["WhiteSur", "WhiteSur-dark", "WhiteSur-light"]},
     {"id": "mcmojave-circle", "name": "McMojave circle", "desc": "macOS Mojave style with round app icons", "tone": "blue", "mb": 30,
@@ -78,7 +104,7 @@ ICONS = [
     {"id": "candy", "name": "Candy", "desc": "Sweet gradient icons", "tone": "pink", "mb": 15,
      "kind": "copy", "repo": "EliverLara/candy-icons", "dirs": {".": "candy-icons"}, "provides": ["candy-icons"]},
     {"id": "beautyline", "name": "BeautyLine", "desc": "Neon gradient outline icons", "tone": "purple", "mb": 30,
-     "kind": "copy", "repo": "gvolpe/BeautyLine", "dirs": {"BeautyLine*": "*"}, "provides": ["BeautyLine"]},
+     "kind": "copy", "repo": "gvolpe/BeautyLine", "pkg": "beautyline", "dirs": {"BeautyLine*": "*"}, "provides": ["BeautyLine"]},
     {"id": "morewaita", "name": "MoreWaita", "desc": "Extends Adwaita with many more app icons", "tone": "blue", "mb": 15,
      "kind": "copy", "repo": "somepaulo/MoreWaita", "dirs": {".": "MoreWaita"}, "provides": ["MoreWaita"]},
     {"id": "flat-remix", "name": "Flat Remix", "desc": "Material flat icons with depth (blue, teal, red)", "tone": "blue", "mb": 60,
@@ -94,6 +120,8 @@ ICONS = [
 ]
 
 CURSORS = [
+    {"id": "qogir-cursor", "name": "Qogir", "desc": "Clean flat cursor in the Qogir palette", "tone": "#2d2d2d",
+     "pkg": "qogir-icon-theme", "provides": ["Qogir-Dark", "Qogir", "Qogir-Light"]},
     {"id": "bibata-modern-classic", "name": "Bibata Modern Classic", "desc": "Rounded black cursor", "tone": "#202020",
      "url": gh_rel("ful1e5/Bibata_Cursor", "Bibata-Modern-Classic.tar.xz"), "provides": ["Bibata-Modern-Classic"]},
     {"id": "bibata-modern-ice", "name": "Bibata Modern Ice", "desc": "Rounded white cursor", "tone": "#f4f4f4",
@@ -104,6 +132,17 @@ CURSORS = [
      "url": gh_rel("ful1e5/Bibata_Cursor", "Bibata-Original-Classic.tar.xz"), "provides": ["Bibata-Original-Classic"]},
     {"id": "bibata-original-ice", "name": "Bibata Original Ice", "desc": "Sharp white cursor", "tone": "#f4f4f4",
      "url": gh_rel("ful1e5/Bibata_Cursor", "Bibata-Original-Ice.tar.xz"), "provides": ["Bibata-Original-Ice"]},
+    {"id": "breeze-cursor", "name": "Breeze", "desc": "KDE Plasma crisp cursor", "tone": "#31363b",
+     "url": gh_rel("ful1e5/Breeze_Cursor", "Breeze.tar.xz"), "pkg": "breeze-cursors", "provides": ["Breeze", "Breeze_Snow", "breeze_cursors"]},
+    {"id": "adwaita-cursor", "name": "Adwaita", "desc": "GNOME default cursor theme", "tone": "#202020",
+     "pkg": "adwaita-cursors", "provides": ["Adwaita"]},
+    {"id": "capitaine", "name": "Capitaine", "desc": "macOS inspired, based on KDE Breeze", "tone": "#111111",
+     "url": gh_rel("sainnhe/capitaine-cursors", "Linux.zip"), "pkg": "capitaine-cursors",
+     "provides": ["Capitaine Cursors", "capitaine-cursors", "capitaine-cursors-white", "capitaine-cursors-light"]},
+    {"id": "nordzy-cursors", "name": "Nordzy", "desc": "Nord palette cursor", "tone": "#2e3440",
+     "url": gh_rel("guillaumeboehm/Nordzy-cursors", "Nordzy-cursors.tar.gz"), "provides": ["Nordzy-cursors"]},
+    {"id": "nordzy-cursors-white", "name": "Nordzy White", "desc": "Nord palette cursor, white", "tone": "#eceff4",
+     "url": gh_rel("guillaumeboehm/Nordzy-cursors", "Nordzy-cursors-white.tar.gz"), "provides": ["Nordzy-cursors-white"]},
     {"id": "phinger", "name": "Phinger", "desc": "Friendly, playful cursors (dark and light)", "tone": "#3a3a3a",
      "url": gh_rel("phisch/phinger-cursors", "phinger-cursors-variants.tar.bz2"), "provides": ["phinger-cursors-dark", "phinger-cursors-light"]},
     {"id": "catppuccin-mocha-dark", "name": "Catppuccin Mocha", "desc": "Soft pastel dark cursor", "tone": "#1e1e2e",
@@ -130,12 +169,6 @@ CURSORS = [
      "url": gh_rel("rose-pine/cursors", "BreezeX-RosePine-Linux.tar.xz"), "provides": ["BreezeX-RosePine-Linux"]},
     {"id": "rosepine-dawn", "name": "Rose Pine Dawn", "desc": "BreezeX in Rose Pine Dawn", "tone": "#faf4ed",
      "url": gh_rel("rose-pine/cursors", "BreezeX-RosePineDawn-Linux.tar.xz"), "provides": ["BreezeX-RosePineDawn-Linux"]},
-    {"id": "nordzy-cursors", "name": "Nordzy", "desc": "Nord palette cursor", "tone": "#2e3440",
-     "url": gh_rel("guillaumeboehm/Nordzy-cursors", "Nordzy-cursors.tar.gz"), "provides": ["Nordzy-cursors"]},
-    {"id": "nordzy-cursors-white", "name": "Nordzy White", "desc": "Nord palette cursor, white", "tone": "#eceff4",
-     "url": gh_rel("guillaumeboehm/Nordzy-cursors", "Nordzy-cursors-white.tar.gz"), "provides": ["Nordzy-cursors-white"]},
-    {"id": "capitaine", "name": "Capitaine", "desc": "macOS inspired, based on KDE Breeze", "tone": "#111111",
-     "url": gh_rel("sainnhe/capitaine-cursors", "Linux.zip"), "provides": ["Capitaine Cursors"]},
 ]
 
 STARTER = {
@@ -171,6 +204,63 @@ def run(cmd, timeout=60, cwd=None):
         return p.returncode, p.stdout.strip(), p.stderr.strip()
     except (OSError, subprocess.TimeoutExpired) as e:
         return 127, "", str(e)
+
+
+_PKG_CACHE = {}
+_PKG_CACHE_AT = [0.0]
+
+
+def is_arch_like():
+    try:
+        with open("/etc/os-release", encoding="utf-8") as fh:
+            text = fh.read().lower()
+    except OSError:
+        return False
+    return "id=arch" in text or "id_like=arch" in text or "id=cachyos" in text
+
+
+def platform_info():
+    pacman = shutil.which("pacman") is not None
+    pkexec = shutil.which("pkexec") is not None
+    arch = is_arch_like()
+    return {"arch": arch, "pacman": pacman, "pkexec": pkexec, "canInstallPackages": bool(arch and pacman and pkexec)}
+
+
+def pkg_available(pkg):
+    """True when pacman's sync databases know pkg. Cached for a few minutes."""
+    if not pkg or shutil.which("pacman") is None:
+        return False
+    if time.time() - _PKG_CACHE_AT[0] > 300:
+        _PKG_CACHE.clear()
+        _PKG_CACHE_AT[0] = time.time()
+    if pkg not in _PKG_CACHE:
+        rc, _, _ = run(["pacman", "-Si", pkg], timeout=20)
+        _PKG_CACHE[pkg] = rc == 0
+    return _PKG_CACHE[pkg]
+
+
+def install_package(ident, kind):
+    """Install one catalog entry from the distribution's trusted repositories."""
+    lst = ICONS if kind == "icon" else CURSORS
+    e = find_entry(lst, ident)
+    pkg = e.get("pkg", "")
+    if not pkg:
+        raise Fail("No trusted repository package for this item; use the download instead")
+    if not re.fullmatch(r"[A-Za-z0-9@._+-]+", pkg):
+        raise Fail("Invalid package name")
+    plat = platform_info()
+    if not plat["canInstallPackages"]:
+        raise Fail("Package installation needs Arch/CachyOS with pacman and polkit (pkexec)")
+    rc, _, err = run(["pkexec", "pacman", "-S", "--needed", "--noconfirm", pkg], timeout=1800)
+    if rc != 0:
+        raise Fail(err or "pacman exited with status %d (authentication cancelled?)" % rc)
+    want = "cursor" if kind == "cursor" else "icon"
+    themes = [t for t in e.get("provides", []) if theme_exists(t, want)]
+    if not themes:
+        themes = [t for t in e.get("provides", []) if theme_exists(t)]
+    if not themes:
+        raise Fail("The package installed, but no theme folders were found. Try refreshing the list.")
+    return {"ok": True, "kind": kind, "id": ident, "package": pkg, "themes": themes}
 
 
 def fetch(url, dest=None, timeout=60):
@@ -223,9 +313,17 @@ def safe_name(n):
     return bool(n) and n not in (".", "..") and "/" not in n and len(n) < 120 and not n.startswith(".")
 
 
-def theme_exists(name):
-    return any(os.path.isfile("%s/%s/index.theme" % (b, name)) for b in
-               USER_ICON_DIRS + [d.rstrip("/") + "/icons" for d in os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":") if d])
+def theme_exists(name, kind=""):
+    bases = USER_ICON_DIRS + [d.rstrip("/") + "/icons" for d in
+                              os.environ.get("XDG_DATA_DIRS", "/usr/local/share:/usr/share").split(":") if d]
+    for b in bases:
+        root = "%s/%s" % (b, name)
+        if kind == "cursor":
+            if os.path.isdir(root + "/cursors"):
+                return True
+        elif os.path.isfile(root + "/index.theme"):
+            return True
+    return False
 
 
 def installed_families():
@@ -341,19 +439,38 @@ def fc_refresh(path):
 
 # ------------------------------------------------------------------------------- Google Fonts
 def gf_meta(refresh=False):
+    def clean_fams(lst):
+        seen = set()
+        res = []
+        for e in lst or []:
+            f = e.get("f")
+            key = f.casefold() if f else ""
+            if f and key not in seen and not is_tamil_font(f):
+                seen.add(key)
+                res.append(e)
+        return res
+
     cached = load_json(META_CACHE, None)
     fresh = cached and time.time() - cached.get("at", 0) < 7 * 86400
     if cached and fresh and not refresh:
-        return cached["families"]
+        return clean_fams(cached.get("families", []))
     try:
         raw = fetch(META_URL, timeout=30).decode("utf-8", "replace")
         o = json.loads(raw[raw.index("{"):])
         fams = []
+        seen = set()
         for e in o.get("familyMetadataList", []):
+            fam = e.get("family", "")
+            key = fam.casefold()
+            if not fam or key in seen:
+                continue
             if "latin" not in e.get("subsets", []) or e.get("category") not in CAT:
                 continue
+            if is_tamil_font(fam):
+                continue
+            seen.add(key)
             fonts = e.get("fonts") or {}
-            fams.append({"f": e["family"], "c": CAT[e["category"]], "p": int(e.get("popularity") or 9999),
+            fams.append({"f": fam, "c": CAT[e["category"]], "p": int(e.get("popularity") or 9999),
                          "s": len(fonts), "w": sorted(fonts.keys()), "v": bool(e.get("axes")),
                          "color": bool(e.get("colorCapabilities"))})
         fams.sort(key=lambda x: x["p"])
@@ -361,7 +478,7 @@ def gf_meta(refresh=False):
         return fams
     except (Fail, ValueError, KeyError):
         if cached:
-            return cached["families"]
+            return clean_fams(cached.get("families", []))
         return [{"f": f, "c": c, "p": i, "s": 0, "w": ["400"], "v": False, "color": False}
                 for c, lst in FALLBACK_FONTS.items() for i, f in enumerate(lst)]
 
@@ -501,6 +618,8 @@ def icon_names():
 
 def install_icon(ident):
     e = find_entry(ICONS, ident)
+    if not e.get("url") and not e.get("repo"):
+        raise Fail("This theme is installed from a system package; use \"Install package\" instead")
     with tempfile.TemporaryDirectory(prefix="sleek-assets-") as tmp:
         if e["kind"] == "script":
             arc = download_to(tmp, gh_src(e["repo"]), e["id"])
@@ -548,6 +667,8 @@ def install_icon(ident):
 
 def install_cursor(ident):
     e = find_entry(CURSORS, ident)
+    if not e.get("url"):
+        raise Fail("This cursor theme is installed from a system package; use \"Install package\" instead")
     with tempfile.TemporaryDirectory(prefix="sleek-assets-") as tmp:
         arc = download_to(tmp, e["url"], e["id"])
         src = tmp + "/src"
@@ -674,16 +795,27 @@ def catalog(refresh=False):
     fams = installed_families()
     m = manifest()
     fonts = []
+    seen = set()
     for e in gf_meta(refresh):
-        fonts.append({"f": e["f"], "c": e["c"], "p": e["p"], "s": e["s"], "i": e["f"] in fams})
+        fam = e.get("f", "")
+        key = fam.casefold()
+        if not fam or key in seen or is_tamil_font(fam):
+            continue
+        seen.add(key)
+        fonts.append({"f": fam, "c": e["c"], "p": e["p"], "s": e["s"], "i": fam in fams})
 
-    def flag(lst, bucket):
+    def flag(lst, bucket, kind):
         res = []
         for e in lst:
-            got = [t for t in m[bucket].get(e["id"], []) if theme_exists(t)] or [t for t in e.get("provides", []) if theme_exists(t)]
+            got = [t for t in m[bucket].get(e["id"], []) if theme_exists(t, kind)] \
+                or [t for t in e.get("provides", []) if theme_exists(t, kind)]
             item = {k: e[k] for k in ("id", "name", "desc", "tone") if k in e}
             item["mb"] = e.get("mb", 0)
             item["script"] = e.get("kind") == "script"
+            item["pkg"] = e.get("pkg", "")
+            item["pkgAvailable"] = pkg_available(e.get("pkg", "")) if e.get("pkg") else False
+            item["downloadable"] = bool(e.get("url") or e.get("repo"))
+            item["downloaded"] = bool(m[bucket].get(e["id"]))
             item["installed"] = bool(got)
             item["themes"] = got
             res.append(item)
@@ -692,8 +824,10 @@ def catalog(refresh=False):
     counts = {}
     for f in fonts:
         counts[f["c"]] = counts.get(f["c"], 0) + 1
-    return {"ok": True, "fonts": fonts, "fontCounts": counts, "icons": flag(ICONS, "icons"), "cursors": flag(CURSORS, "cursors"),
-            "starter": STARTER, "dirs": {"fonts": FONT_DIR, "icons": ICON_DIR}}
+    return {"ok": True, "fonts": fonts, "fontCounts": counts,
+            "icons": flag(ICONS, "icons", "icon"), "cursors": flag(CURSORS, "cursors", "cursor"),
+            "starter": STARTER, "dirs": {"fonts": FONT_DIR, "icons": ICON_DIR},
+            "platform": platform_info()}
 
 
 def starter():
@@ -710,7 +844,7 @@ def starter():
             failed.append("%s: %s" % (f, e))
     for ident in STARTER["icons"]:
         e = find_entry(ICONS, ident)
-        if any(theme_exists(t) for t in e.get("provides", [])) or m["icons"].get(ident):
+        if any(theme_exists(t, "icon") for t in e.get("provides", [])) or m["icons"].get(ident):
             continue
         try:
             install_icon(ident)
@@ -719,7 +853,7 @@ def starter():
             failed.append("%s: %s" % (e["name"], x))
     for ident in STARTER["cursors"]:
         e = find_entry(CURSORS, ident)
-        if any(theme_exists(t) for t in e.get("provides", [])) or m["cursors"].get(ident):
+        if any(theme_exists(t, "cursor") for t in e.get("provides", [])) or m["cursors"].get(ident):
             continue
         try:
             install_cursor(ident)
@@ -740,6 +874,10 @@ def main(argv):
             r = install_icon(argv[2])
         elif cmd == "install-cursor" and len(argv) == 3:
             r = install_cursor(argv[2])
+        elif cmd == "install-package" and len(argv) == 4 and argv[2] in ("icon", "cursor"):
+            r = install_package(argv[3], argv[2])
+        elif cmd == "platform":
+            r = {"ok": True, "platform": platform_info()}
         elif cmd == "install-path" and len(argv) == 3:
             r = install_path(argv[2])
         elif cmd == "remove" and len(argv) == 4:
@@ -750,7 +888,8 @@ def main(argv):
             r = starter()
         else:
             r = {"ok": False, "error": "usage: catalog | install-font F | install-icon ID | install-cursor ID | "
-                                       "install-path P | remove KIND NAME | preview-fonts COLOR F... | starter"}
+                                       "install-package icon|cursor ID | install-path P | remove KIND NAME | "
+                                       "preview-fonts COLOR F... | starter | platform"}
     except Fail as e:
         r = {"ok": False, "error": str(e)}
     except (OSError, shutil.Error, zipfile.BadZipFile) as e:

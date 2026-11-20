@@ -37,5 +37,5 @@ calc/sleekcalc.so
 /Projects/
 /MyData/
 
-# Screenshots are not published.
+# Raw screenshots are not published; curated README images live in assets/screenshots/.
 /screenshots/

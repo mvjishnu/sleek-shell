@@ -8,6 +8,7 @@ import Quickshell.Io
 Singleton {
     id: lib
     readonly property string script: Quickshell.shellDir + "/scripts/asset-store.py"
+    readonly property string prefsScript: Quickshell.shellDir + "/scripts/desktop-prefs.py"
 
     // ---- catalogue
     property var fonts: []            // [{ f: family, c: sans|serif|hand|display|mono, p: popularity rank, s: styles, i: installed }]
@@ -16,6 +17,7 @@ Singleton {
     property var cursors: []
     property var starter: ({ fonts: [], icons: [], cursors: [] })
     property var dirs: ({ fonts: "", icons: "" })
+    property var platform: ({ arch: false, pacman: false, pkexec: false, canInstallPackages: false })
     property bool loaded: false
     property bool loading: false
     property string catalogError: ""
@@ -35,7 +37,8 @@ Singleton {
                 var o = JSON.parse(catalogOut.text)
                 if (!o.ok) { lib.catalogError = o.error || "Could not load the catalogue"; return }
                 lib.fonts = o.fonts; lib.fontCounts = o.fontCounts; lib.icons = o.icons; lib.cursors = o.cursors
-                lib.starter = o.starter; lib.dirs = o.dirs; lib.loaded = true; lib.catalogError = ""
+                lib.starter = o.starter; lib.dirs = o.dirs; lib.platform = o.platform || lib.platform
+                lib.loaded = true; lib.catalogError = ""
             } catch (e) { lib.catalogError = "Could not load the catalogue (asset-store.py exit " + code + ")" }
         }
     }
@@ -66,12 +69,19 @@ Singleton {
     function installFont(family) { enqueue({ kind: "font", arg: family, label: family }) }
     function installIcon(e) { enqueue({ kind: "icon", arg: e.id, label: e.name + " icons" }) }
     function installCursor(e) { enqueue({ kind: "cursor", arg: e.id, label: e.name + " cursor" }) }
+    function canPackage(e) { return !!e && !!e.pkg && !!e.pkgAvailable && platform.canInstallPackages }
+    function installPackage(e, kind) {
+        if (!canPackage(e)) { message = "No trusted repository package is available for this item"; messageError = true; return }
+        enqueue({ kind: "pkg", arg: e.id, kind2: kind, package: e.pkg, label: e.name + " (package)" })
+    }
     function installPath(path) {
         var p = String(path || "").trim()
         if (p === "") { message = "Paste a file path, folder or download link first"; messageError = true; return }
         enqueue({ kind: "path", arg: p, label: p.split("/").pop() || p })
     }
     function remove(kind, name) { enqueue({ kind: "remove", arg: kind + "/" + name, kind2: kind, name: name, label: "Removing " + name }) }
+    function removeThemes(kind, themes) { (themes || []).forEach(function (n) { lib.remove(kind, n) }) }
+    function removeTamil() { enqueue({ kind: "tamil", arg: "tamil", label: "Tamil-only fonts" }) }
     function installedFamily(f) { return Theme.fontList.indexOf(f) >= 0 || fonts.some(function (x) { return x.f === f && x.i }) }
     function starterMissing() {
         var miss = []
@@ -99,7 +109,9 @@ Singleton {
         if (job.kind === "font") cmd = cmd.concat(["install-font", job.arg])
         else if (job.kind === "icon") cmd = cmd.concat(["install-icon", job.arg])
         else if (job.kind === "cursor") cmd = cmd.concat(["install-cursor", job.arg])
+        else if (job.kind === "pkg") cmd = cmd.concat(["install-package", job.kind2, job.arg])
         else if (job.kind === "path") cmd = cmd.concat(["install-path", job.arg])
+        else if (job.kind === "tamil") cmd = ["python3", lib.prefsScript, "remove-tamil"]
         else cmd = cmd.concat(["remove", job.kind2, job.name])
         jobProc.command = cmd
         jobProc.running = true
@@ -120,7 +132,12 @@ Singleton {
             var job = lib.current, o = {}
             try { o = JSON.parse(jobOut.text) } catch (e) { o = { ok: false, error: "asset-store.py failed (exit " + code + ")" } }
             if (o.ok) {
-                if (job.kind === "font") {
+                if (job.kind === "tamil") {
+                    lib.message = o.removed > 0
+                        ? "Removed " + o.removed + " Tamil-only font files" + (o.backup ? "; backups in " + o.backup : "")
+                        : "No Tamil-only fonts are installed"
+                    Theme.refreshFonts()
+                } else if (job.kind === "font") {
                     lib.loadFontFiles(o.files)
                     lib.fonts = lib.fonts.map(function (x) { return x.f === o.family ? Object.assign({}, x, { i: true }) : x })
                     lib.message = o.family + " installed"
@@ -131,16 +148,22 @@ Singleton {
                 } else if (job.kind === "remove") {
                     lib.message = "Removed " + job.name
                     if (job.kind2 === "font") fontRefreshT.restart()
+                } else if (job.kind === "pkg") {
+                    var pk = job.kind2 === "icon" ? lib.icons : lib.cursors
+                    pk = pk.map(function (x) { return x.id === o.id ? Object.assign({}, x, { installed: true, themes: o.themes }) : x })
+                    if (job.kind2 === "icon") lib.icons = pk; else lib.cursors = pk
+                    lib.message = o.package + " installed from the repositories: " + (o.themes || []).join(", ")
                 } else {
                     var list = job.kind === "icon" ? lib.icons : lib.cursors
-                    list = list.map(function (x) { return x.id === o.id ? Object.assign({}, x, { installed: true, themes: o.themes }) : x })
+                    list = list.map(function (x) { return x.id === o.id ? Object.assign({}, x, { installed: true, downloaded: true, themes: o.themes }) : x })
                     if (job.kind === "icon") lib.icons = list; else lib.cursors = list
                     lib.message = job.label + " installed: " + (o.themes || []).join(", ")
                 }
                 lib.messageError = false
             } else {
-                lib.failures = lib.failures.concat([job.label + ": " + (o.error || "failed")])
-                lib.message = job.label + ": " + (o.error || "failed")
+                var why = o.error || (o.errors && o.errors.length ? o.errors.join("; ") : "failed")
+                lib.failures = lib.failures.concat([job.label + ": " + why])
+                lib.message = job.label + ": " + why
                 lib.messageError = true
             }
             var p = Object.assign({}, lib.pendingKeys); delete p[lib.key(job.kind, job.arg)]; lib.pendingKeys = p
@@ -207,6 +230,7 @@ Singleton {
         function installIcon(id: string): void { lib.enqueue({ kind: "icon", arg: id, label: id + " icons" }) }
         function installCursor(id: string): void { lib.enqueue({ kind: "cursor", arg: id, label: id + " cursor" }) }
         function installPath(path: string): void { lib.installPath(path) }
+        function removeTamil(): void { lib.removeTamil() }
         function installStarter(): void { if (lib.loaded) lib.installStarter(); else { starterAfterLoad.enabled = true; lib.load(false) } }
         function status(): string {
             return JSON.stringify({ busy: lib.busy, current: lib.current ? lib.current.label : "", done: lib.doneCount, total: lib.totalCount,

@@ -50,13 +50,24 @@ bounds (MDI) and snaps the baseline to physical pixels — never add manual offs
 Bar pills: `BarButton` (single pill) / `Island` (multi-item pill), both drawn by `PillSurface`.
 
 ## Fonts, icons & cursors (Settings > Fonts, icons & cursors)
+- Three sections: **Fonts**, **Cursor themes** and **Application icons**. Installed items are discovered at runtime and
+  support search; the store separates installed themes from themes available to install. The selected item is shown
+  at the top of each section and applied immediately.
+- Font discovery filters by family identity: Tamil-script-only faces are hidden while multilingual families such as
+  Noto Sans and Noto Serif stay available. Families are de-duplicated case-insensitively.
 - `scripts/asset-store.py` downloads Google Fonts (cached list, 7-day refresh), curated icon themes and cursor themes,
   or imports a local path / URL (archives are scanned). Fonts -> `~/.local/share/fonts/sleek-shell/`, themes ->
-  `~/.local/share/icons/`; manifest `~/.local/share/sleek-shell/assets.json`. No sudo; remove only touches user dirs.
+  `~/.local/share/icons/`; manifest `~/.local/share/sleek-shell/assets.json`. Remove only touches user dirs.
+- On Arch/CachyOS, catalog entries with a trusted repository package (`pkg`) also offer **Install package**. It runs
+  `pkexec pacman -S --needed --noconfirm PKG` only after a second confirmation click and a polkit prompt; downloads
+  never need root. Both actions are opt-in per theme.
 - `scripts/desktop-prefs.py` lists installed fonts/icons/cursors (with previews) and applies them to GTK, Qt/KDE,
-  fontconfig and the cursor (gsettings, settings.ini, kcminputrc, icons/default, `hyprctl setcursor`,
-  `~/.config/sleek-shell/hypr-cursor.lua` read by `hypr/sleekshell/cursor.lua`).
+  fontconfig, Rofi and the cursor (gsettings, settings.ini, kcminputrc, icons/default, `hyprctl setcursor`,
+  `~/.config/sleek-shell/hypr-cursor.lua` read by `hypr/sleekshell/cursor.lua`). Icon changes keep Rofi's existing
+  `icon-theme` line in `~/.config/rofi/config.rasi` instead of replacing the file.
 - Variety pack: `quickshell ipc call styles installStarter` (or `asset-store.py starter`).
+- Command-line equivalents: `asset-store.py catalog | install-package icon|cursor ID | platform`,
+  `desktop-prefs.py list | apply …`. The GUI is the normal path; these are for scripting and tests.
 
 ## Rules
 - Only `Theme` writes appearance files, only `Settings` writes settings.json, only `hypr-tools.py` writes keybinds.

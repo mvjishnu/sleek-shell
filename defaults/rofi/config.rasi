@@ -1,6 +1,7 @@
 configuration {
     modi: "drun,run,window";
     show-icons: true;
+    icon-theme: "Papirus-Dark";
     display-drun: "";
     display-run: "";
     display-window: "";

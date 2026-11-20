@@ -157,4 +157,34 @@ rr() {
 # LOCAL OVERRIDES
 # ==========================================
 
-[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+# VSCodium as `code` when VS Code itself is not installed.
+(( $+commands[codium] && ! $+commands[code] )) && alias code='codium'
+
+# crun: build + run a C/C++ file, then delete the binary.  Usage: crun file.cpp [program args...]
+crun() {
+    if [[ -z "$1" || ! -f "$1" ]]; then
+        echo "usage: crun <file.c|file.cpp> [args...]"; return 1
+    fi
+    local src="$1"; shift
+    local out compiler std
+    out="$(mktemp -t crun.XXXXXX)" || return 1
+    case "${src:e}" in
+        c)                 compiler=gcc; std=-std=c17 ;;
+        cpp|cc|cxx|c++|C)  compiler=g++; std=-std=c++20 ;;
+        *) echo "crun: not a .c or .cpp file: $src"; rm -f "$out"; return 1 ;;
+    esac
+    if "$compiler" $std -Wall -Wextra -g "$src" -o "$out" -lm; then
+        "$out" "$@"
+        local rc=$?
+        rm -f "$out"
+        return $rc
+    else
+        rm -f "$out"
+        return 1
+    fi
+}
+
+# Machine-specific additions go in ~/.zshrc.local (kept by the installer and never published).
+if [[ -r "$HOME/.zshrc.local" ]]; then
+    source "$HOME/.zshrc.local"
+fi
